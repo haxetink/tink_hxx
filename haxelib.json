@@ -1,0 +1,23 @@
+{
+  "name": "hxx",
+  "license": "MIT",
+  "tags": [
+    "hxx",
+    "jsx",
+    "vdom",
+    "dom",
+    "template",
+    "cross"
+  ],
+  "classPath": "src",
+  "contributors": [
+    "back2dos"
+  ],
+  "releasenote": "initial release",
+  "version": "0.0.0",
+  "url": "https://github.com/back2dos/hxx/",
+  "dependencies": {
+    "tink_parse": "",
+    "tink_macro": ""
+  }
+}

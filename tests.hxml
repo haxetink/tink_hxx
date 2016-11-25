@@ -1,0 +1,4 @@
+-lib tink_stringly
+-lib deep_equal
+-cp tests
+-main RunTests
