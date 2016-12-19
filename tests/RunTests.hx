@@ -5,6 +5,7 @@ import haxe.PosInfos;
 import haxe.unit.TestCase;
 import haxe.unit.TestRunner;
 import Dummy.*;
+import vdom.VDom.*;
 
 class RunTests extends TestCase {
 
@@ -29,6 +30,8 @@ class RunTests extends TestCase {
     assertDeepEqual([tag('test', {})], dom('  <test / >  '));
     assertDeepEqual([tag('test', {})], dom('  <test></test>  '));
     assertDeepEqual([tag('test', {})], dom('  <test>   </test>  '));
+    var foo = tag('foo', { });
+    assertDeepEqual([tag('test', {}, [text(' test '), foo, text('test'), foo])], dom('  <test> test {foo}test${foo} </test>  '));
     assertDeepEqual([tag('test', {})], dom('  <test>  <!-- ignore this please --> </test>  '));
     assertDeepEqual([tag('foo', {}), tag('bar', {}), tag('baz', {})], dom('<foo /> <bar></bar><baz />'));
   }
@@ -40,6 +43,12 @@ class RunTests extends TestCase {
   }
   
   static function main() {
+    #if (js && !nodejs)
+      hxx('
+        <div />
+      ');
+    #end
+
     var r = new TestRunner();
     r.add(new RunTests());
     

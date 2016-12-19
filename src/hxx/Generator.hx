@@ -30,7 +30,7 @@ class SimpleGenerator implements GeneratorObject {
     this.pos = pos;
     this.doMakeNode = doMakeNode;
   }
-    
+  
   public function string(s:StringAt) 
     return switch s.value {
       case _.trim() => '': None;

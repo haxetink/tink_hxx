@@ -94,33 +94,52 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var ret = [];      
     
     while (pos < max) {
+      
+      function text(upto) {
+        switch gen.string(withPos(this.source[pos...upto], StringTools.htmlUnescape)) {
+          case Some(v): ret.push(v);
+          case None:
+        }
+        pos = upto;
+      }
+      
+      switch [source.indexOf('{', pos), source.indexOf('<', pos)] {
+        case [-1, -1]:
+          this.skipIgnored();
+          if (this.pos < this.max)
+            die('< expected');
+        
+        case [first, later] if (first != -1 && (first < later || later == -1)):
+          
+          if (String.fromCharCode(source[first - 1]) == '$')
+            first--;
+          
+          text(first);
+          
+          if (!(allowHere("{") || allowHere("${")))
+            throw 'assert';
             
-      if (allow('{') || allow("${")) {
-        ret.push(injectedExpr());
-        continue;
+          ret.push(injectedExpr());
+          
+        case [_, v]:
+          text(v);
+          expectHere('<');
+          if (allowHere('!--')) 
+            upto('-->', true);
+          else if (allowHere('!'))
+            die('Invalid comment or unsupported processing instruction');
+          else if (allowHere('/')) {
+            var found = ident(true).sure();
+            expectHere('>');
+            if (found != closing)
+              die('found </$found> but expected </$closing>', found.start...found.end);
+            return ret;
+          }
+          else {
+            ret.push(parseChild());        
+          }
       }
-      
-      if (pos >= max) break;//TODO: Find out why this check has to be here, despite it being the loop condition. That is just soooo wrong.
-      
-      switch gen.string(withPos(this.upto('<').sure(), StringTools.urlDecode)) {
-        case Some(v): ret.push(v);
-        default: 
-      }
-      
-      if (allowHere('!--')) 
-        upto('-->', true);
-      else if (allowHere('!'))
-        die('Invalid comment or unsupported processing instruction');
-      else if (allowHere('/')) {
-        var found = ident(true).sure();
-        expectHere('>');
-        if (found != closing)
-          die('found </$found> but expected </$closing>', found.start...found.end);
-        return ret;
-      }
-      else {
-        ret.push(parseChild());        
-      }      
+            
     }
     
     if (closing != null)

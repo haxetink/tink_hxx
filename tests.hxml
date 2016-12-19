@@ -1,3 +1,4 @@
+-lib js-virtual-dom
 -lib tink_stringly
 -lib deep_equal
 -cp tests
