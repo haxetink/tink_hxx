@@ -11,11 +11,14 @@ abstract Dummy({ name:String, attr:Dynamic<Stringly>, children:Array<Dummy> }) f
     
   @:from static public function text(s:String):Dummy
     return tag('--text', { content: s }, null);
+    
+  @:from static public function int(i:Int):Dummy
+    return text(Std.string(i));
   
   macro static public function dom(e) 
     return macro @:pos(e.pos) (
       ${hxx.Parser.parse(e, function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
-        return macro Dummy.tag(
+        return macro @:pos(name.pos) Dummy.tag(
           $v{name.value},
           $attr,
           ${switch children {

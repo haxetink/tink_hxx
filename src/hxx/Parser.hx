@@ -8,6 +8,7 @@ import tink.parse.StringSlice;
 import haxe.macro.Context;
 
 using StringTools;
+using haxe.io.Path;
 using tink.MacroApi;
 using tink.CoreApi;
 
@@ -16,12 +17,12 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   var gen:Generator;
   var fileName:String;
   var offset:Int;
-  
-  public function new(fileName:String, source:String, offset:Int, gen:Generator) {
+  var defaultExtension:String;
+  public function new(fileName:String, source:String, offset:Int, gen:Generator, defaultExtension) {
     this.fileName = fileName;
     this.gen = gen;
     this.offset = offset;
-    
+    this.defaultExtension = defaultExtension;
     super(source);
   }
   
@@ -80,8 +81,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           attr,
           if (allow('{') || allow("${")) 
             injectedExpr();
-          else             
-            EConst(CString(expect('"') + upto('"').sure().toString().urlDecode())).at(doMakePos(source.start, source.end))
+          else {
+            var s = parseString();
+            EConst(CString(s.value)).at(s.pos);
+          }
         )
       );
     }
@@ -89,6 +92,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return
       gen.makeNode(name, attrs, if (hasChildren) parseChildren(name.value) else []);
   }
+  
+  function parseString()
+    return expect('"') + withPos(upto('"').sure(), StringTools.urlDecode);
   
   function parseChildren(?closing:String):Array<Expr> {
     var ret = [];      
@@ -119,13 +125,41 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           if (!(allowHere("{") || allowHere("${")))
             throw 'assert';
             
-          ret.push(injectedExpr());
+          if (allow('import')) {
+            
+            var file = parseString();
+            
+            expect('}');
+                        
+            var name = file.value;
+            
+            if (name.extension() == '')
+              name = '$name.$defaultExtension';
+                          
+            if (!name.startsWith('./'))
+              name = Path.join([fileName.directory(), name]);
+              
+            var content = 
+              try
+                sys.io.File.getContent(name)
+              catch (e:Dynamic)
+                file.pos.error(e);
+            
+            Context.registerModuleDependency(Context.getLocalModule(), name);
+                
+            var p = new Parser(name, content, 0, gen, defaultExtension);
+            for (c in p.parseChildren())
+              ret.push(c);
+            
+          }
+          else
+            ret.push(injectedExpr());
           
         case [_, v]:
           text(v);
           expectHere('<');
           if (allowHere('!--')) 
-            upto('-->', true);
+            upto('-->', true);            
           else if (allowHere('!'))
             die('Invalid comment or unsupported processing instruction');
           else if (allowHere('/')) {
@@ -180,10 +214,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }  
   
-  static public function parse(e:Expr, gen:Generator) {
+  static public function parse(e:Expr, gen:Generator, ?defaultExtension = 'hxx') {
     var s = e.getString().sure();
     var pos = Context.getPosInfos(e.pos);
-    var p = new Parser(pos.file, s, pos.min + 1, gen);
+    var p = new Parser(pos.file, s, pos.min + 1, gen, defaultExtension);
     p.skipIgnored();
     return gen.root(p.parseChildren());
   }
