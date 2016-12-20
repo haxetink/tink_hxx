@@ -13,8 +13,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Better parser and whitespace treatment",
-	"version": "0.2.0",
+	"releasenote": "Add support for imports.",
+	"version": "0.3.0",
 	"url": "https://github.com/back2dos/hxx/",
 	"dependencies": {
 		"tink_parse": "",
