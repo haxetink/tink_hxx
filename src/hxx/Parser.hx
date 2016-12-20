@@ -183,6 +183,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   static public function parse(e:Expr, gen:Generator) {
     var s = e.getString().sure();
     var pos = Context.getPosInfos(e.pos);
-    return gen.root(new Parser(pos.file, s, pos.min + 1, gen).parseChildren());
+    var p = new Parser(pos.file, s, pos.min + 1, gen);
+    p.skipIgnored();
+    return gen.root(p.parseChildren());
   }
 }

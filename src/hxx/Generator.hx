@@ -31,9 +31,42 @@ class SimpleGenerator implements GeneratorObject {
     this.doMakeNode = doMakeNode;
   }
   
+  static public function trimString(s:String) {
+    
+    var pos = 0,
+        max = s.length,
+        leftNewline = false,
+        rightNewline = false;
+
+    while (pos < max) {
+      switch s.charCodeAt(pos) {
+        case '\n'.code | '\r'.code: leftNewline = true;
+        case v:
+          if (v > 32) break;
+      }
+      pos++;
+    }
+    
+    while (max > pos) {
+      switch s.charCodeAt(max-1) {
+        case '\n'.code | '\r'.code: rightNewline = true;
+        case v:
+          if (v > 32) break;
+      }
+      max--;
+    }
+        
+    if (!leftNewline) 
+      pos = 0;
+    if (!rightNewline)
+      max = s.length;
+      
+    return s.substring(pos, max);
+  }
+  
   public function string(s:StringAt) 
-    return switch s.value {
-      case _.trim() => '': None;
+    return switch trimString(s.value) {
+      case '': None;
       case v: Some(macro @:pos(s.pos) $v{v});
     }    
     
