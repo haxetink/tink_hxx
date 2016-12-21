@@ -13,8 +13,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Add support for imports.",
-	"version": "0.3.0",
+	"releasenote": "Add control structures.",
+	"version": "0.4.0",
 	"url": "https://github.com/back2dos/hxx/",
 	"dependencies": {
 		"tink_parse": "",
