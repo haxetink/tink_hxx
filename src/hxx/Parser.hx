@@ -12,17 +12,25 @@ using haxe.io.Path;
 using tink.MacroApi;
 using tink.CoreApi;
 
+typedef ParserConfig = {
+  defaultExtension:String,
+  ?noControlStructures:Bool,
+  ?interceptTag:String->Option<StringAt->Expr>,
+}
+
 class Parser extends ParserBase<Position, haxe.macro.Error> { 
   
   var gen:Generator;
   var fileName:String;
   var offset:Int;
-  var defaultExtension:String;
-  public function new(fileName:String, source:String, offset:Int, gen:Generator, defaultExtension) {
+  var config:ParserConfig;
+  
+  
+  public function new(fileName, source, offset, gen, config) {
     this.fileName = fileName;
     this.gen = gen;
     this.offset = offset;
-    this.defaultExtension = defaultExtension;
+    this.config = config;
     super(source);
   }
   
@@ -39,23 +47,46 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   function parseExpr(source, pos)
     return Context.parseInlineString(source, pos);
   
-  function injectedExpr() {
+  function simpleIdent() {
+    var name = withPos(ident(true).sure());
+    return macro @:pos(name.pos) $i{name.value};
+  }
+    
+  function argExpr()
+    return 
+      if (allow("${") || allow('{')) 
+        Success(ballancedExpr('{', '}'));
+      else if (allow("$")) 
+        Success(simpleIdent());
+      else 
+        Failure(makeError('expression expected', makePos(pos, pos)));
+    
+  function ballancedExpr(open:String, close:String) {
+    var src = ballanced(open, close);
+    return parseExpr(src.value, src.pos);
+  }
+  
+  function ballanced(open:String, close:String) {
     var start = pos;
-    var expr = null;
+    var ret = null;
     do {
-      upto('}');
+      upto(close);
       
       var inner = withPos(source[start...pos-1]);
       
-      if (inner.value.split('{').length == inner.value.split('}').length)
-        expr = parseExpr(inner.value, inner.pos);
-    } while (expr == null);
+      if (inner.value.split(open).length == inner.value.split(close).length)
+        ret = inner;
+    } while (ret == null);
     
-    return expr;      
+    return ret;          
   }
+  
+  function kwd(name:String) 
+    return config.noControlStructures != true && allowHere(name);
   
   function parseChild() {
     var name = withPos(ident(true).sure());
+    
     var hasChildren = true;
     var attrs = new Array<NamedWith<StringAt, Expr>>();
     
@@ -79,11 +110,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       attrs.push(
         new NamedWith(
           attr,
-          if (allow('{') || allow("${")) 
-            injectedExpr();
-          else {
-            var s = parseString();
-            EConst(CString(s.value)).at(s.pos);
+          switch argExpr() {
+            case Success(e): e;
+            default:
+              var s = parseString();
+              EConst(CString(s.value)).at(s.pos);
           }
         )
       );
@@ -100,31 +131,50 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var ret = [];      
     
     while (pos < max) {
+       
       
-      function text(upto) {
-        switch gen.string(withPos(this.source[pos...upto], StringTools.htmlUnescape)) {
+      function text(slice) {
+        switch gen.string(withPos(slice, StringTools.htmlUnescape)) {
           case Some(v): ret.push(v);
           case None:
         }
-        pos = upto;
       }
       
-      switch [source.indexOf('{', pos), source.indexOf('<', pos)] {
-        case [-1, -1]:
-          this.skipIgnored();
-          if (this.pos < this.max)
-            die('< expected');
-        
-        case [first, later] if (first != -1 && (first < later || later == -1)):
+      switch first(["${", "$", "{", "<"], text) {
+        case Success("<"):
           
-          if (String.fromCharCode(source[first - 1]) == '$')
-            first--;
+          if (allowHere('!--')) 
+            upto('-->', true);            
+          else if (allowHere('!'))
+            die('Invalid comment or unsupported processing instruction');
+          else if (allowHere('/')) {
+            var found = ident(true).sure();
+            expectHere('>');
+            if (found != closing)
+              die('found </$found> but expected </$closing>', found.start...found.end);
+            return ret;
+          }
+          else if (kwd('for')) {
+            var head = argExpr().sure() + expect('>');
+            ret.push(macro [for ($head) $a{parseChildren('for')}]);
+          }
+          else if (kwd('switch')) 
+            ret.push(parseSwitch());
+          else if (kwd('if')) 
+            ret.push(parseIf());
+          else if (kwd('else')) 
+            throw new Else(ret);
+          else if (kwd('case')) 
+            throw new Case(ret);
+          else 
+            ret.push(parseChild());        
           
-          text(first);
+        case Success("$"):
           
-          if (!(allowHere("{") || allowHere("${")))
-            throw 'assert';
-            
+          ret.push(simpleIdent());
+          
+        case Success(v):
+          
           if (allow('import')) {
             
             var file = parseString();
@@ -134,7 +184,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             var name = file.value;
             
             if (name.extension() == '')
-              name = '$name.$defaultExtension';
+              name = '$name.${config.defaultExtension}';
                           
             if (!name.startsWith('./'))
               name = Path.join([fileName.directory(), name]);
@@ -147,31 +197,18 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             
             Context.registerModuleDependency(Context.getLocalModule(), name);
                 
-            var p = new Parser(name, content, 0, gen, defaultExtension);
+            var p = new Parser(name, content, 0, gen, config);
             for (c in p.parseChildren())
               ret.push(c);
             
           }
           else
-            ret.push(injectedExpr());
-          
-        case [_, v]:
-          text(v);
-          expectHere('<');
-          if (allowHere('!--')) 
-            upto('-->', true);            
-          else if (allowHere('!'))
-            die('Invalid comment or unsupported processing instruction');
-          else if (allowHere('/')) {
-            var found = ident(true).sure();
-            expectHere('>');
-            if (found != closing)
-              die('found </$found> but expected </$closing>', found.start...found.end);
-            return ret;
-          }
-          else {
-            ret.push(parseChild());        
-          }
+            ret.push(ballancedExpr('{', '}'));
+            
+        case Failure(e):
+          this.skipIgnored();
+          if (this.pos < this.max)
+            e.pos.error(e.message);
       }
             
     }
@@ -180,6 +217,61 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       die('unclosed <$closing>');
     
     return ret;
+  }
+  
+  function parseSwitch() {
+    var cond = argExpr().sure() + expect('>') + expect('<case');
+    var cases:Array<haxe.macro.Expr.Case> = [];
+    
+    var last = false;
+    while (!last) {
+      cases.push({
+        values: [argExpr().sure()],
+        guard: (if (allow('if')) argExpr().sure() else null) + expect('>'),
+        expr:
+          try {
+            last = true;
+            macro $a{parseChildren('switch')};
+          }
+          catch (e:Case) {
+            last = false;
+            macro $a{e.children};
+          }
+      });
+    }
+    return ESwitch(cond, cases, null).at();
+  }
+  
+  function parseIf() {
+    var start = pos;
+    var cond = argExpr().sure() + expect('>');
+    
+    function make(cons, alt) {
+      
+      var pos = makePos(start, pos);
+      
+      function posOf(a:Array<Expr>)
+        return switch a {
+          case []: pos;
+          default:
+            a[a.length - 1].pos;
+        }
+      
+      var cons = macro @:pos(posOf(cons)) $a{cons};
+      var alt = macro @:pos(posOf(alt)) $a{alt};
+      
+      return macro @:pos(cond.pos) if ($cond) $cons else $alt;
+    }
+    return 
+      try {
+        make(parseChildren('if'), []);
+      }
+      catch (e:Else) {
+        if (allow('if')) 
+          make(e.children, [parseIf()]);
+        else
+          expect('>') + make(e.children, parseChildren('if'));
+      }
   }
   
   static var IDENT_START = UPPER || LOWER || '_'.code;
@@ -214,11 +306,40 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }  
   
-  static public function parse(e:Expr, gen:Generator, ?defaultExtension = 'hxx') {
+  static public function parse(e:Expr, gen:Generator, ?config:ParserConfig) {
+    if (config == null) 
+      config = {
+        defaultExtension: 'hxx',
+        noControlStructures: false,
+      }
+      
     var s = e.getString().sure();
     var pos = Context.getPosInfos(e.pos);
-    var p = new Parser(pos.file, s, pos.min + 1, gen, defaultExtension);
+    var p = new Parser(pos.file, s, pos.min + 1, gen, config);
     p.skipIgnored();
-    return gen.root(p.parseChildren());
+    return try {
+      gen.root(p.parseChildren());
+    }
+    catch (e:Case) 
+      p.die('case outside of switch', p.pos - 4 ... p.pos)
+    catch (e:Else)
+      p.die('else without if', p.pos - 4 ... p.pos);
   }
+}
+
+private class Branch {
+  public var children(default, null):Array<Expr>;
+  public function new(children)
+    this.children = children;
+    
+  public function toString() {
+    return 'mispaced ${Type.getClassName(Type.getClass(this))}';
+  }    
+}
+
+private class Case extends Branch { 
+  
+}
+private class Else extends Branch { 
+
 }

@@ -25,7 +25,6 @@ interface GeneratorObject {
 class SimpleGenerator implements GeneratorObject { 
   var pos:Position;
   var doMakeNode:StringAt->Expr->Option<Expr>->Expr;
-  
   public function new(pos, doMakeNode) {
     this.pos = pos;
     this.doMakeNode = doMakeNode;

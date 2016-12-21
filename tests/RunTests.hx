@@ -6,6 +6,8 @@ import haxe.unit.TestCase;
 import haxe.unit.TestRunner;
 import Dummy.*;
 
+using StringTools;
+
 class RunTests extends TestCase {
 
   function assertDeepEqual<A>(a:A, b:A, ?pos:PosInfos) {
@@ -43,7 +45,9 @@ class RunTests extends TestCase {
         </div>
       ')
     );
-    var foo = tag('foo', { });
+    var foo = tag('foo', { } );
+    
+    dom('{import "test"}');
     
     assertDeepEqual([tag('test', {}, [text(' test '), foo, text('test'), foo, text(' ')])], dom('  <test> test {foo}test${foo} </test>  '));
     assertDeepEqual([tag('test', {}, [text('  '), text(' ')])], dom('  <test>  <!-- ignore this please --> </test>  '));
@@ -54,6 +58,40 @@ class RunTests extends TestCase {
     assertDeepEqual([tag('test', {}, ['foo  '])], dom('<test>foo  </test>'));    
   }
   
+  function testControl() {
+    var other = dom('<other/>');
+    assertEquals('<div><zero></zero><one></one><two></two><other></other><other></other></div>', dom('
+      <div>
+        <for {i in 0...5}>
+          <if {i == 0}>
+            <zero />
+          <else if ${i == 1}>
+            <one />
+          <elseif {i == 2}>
+            <two />
+          <else>
+            ${other}        
+          </if>
+        </for>
+      </div>
+    ')[0].format());
+    assertEquals('<div><zero></zero><one></one><two></two><other></other><other></other></div>', dom('
+      <div>
+        <for {i in 0...5}>
+          <switch $i>
+            <case {0}>
+              <zero />
+            <case {1}>
+              <one />
+            <case {v} if {v == 2}>
+              <two />
+            <case {_}>
+              $other
+          </switch>
+        </for>
+      </div>
+    ')[0].format());
+  }
   
   static function main() {
     
