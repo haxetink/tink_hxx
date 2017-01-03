@@ -43,14 +43,25 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
   macro static public function dom(e) 
     return macro @:pos(e.pos) (
       ${hxx.Parser.parse(e, function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
-        return macro @:pos(name.pos) Dummy.tag(
-          $v{name.value},
-          $attr,
-          ${switch children {
-            case Some(v): v;
-            default: macro null;
-          }} 
-        )
+        return
+          if (name.value == '...') {
+            
+            var children = switch children {
+              case Some(v): v;
+              default: macro [];
+            }
+            
+            macro @:pos(name.pos) Dummy.ofArray($children);
+          }
+          else
+            macro @:pos(name.pos) Dummy.tag(
+              $v{name.value},
+              $attr,
+              ${switch children {
+                case Some(v): v;
+                default: macro null;
+              }} 
+            )
       )}
         :
       Array<Dummy>

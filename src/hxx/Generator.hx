@@ -18,6 +18,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
 
 interface GeneratorObject { 
   function string(s:StringAt):Option<Expr>;
+  function flatten(pos:Position, children:Array<Expr>):Expr;
   function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr;
   function root(children:Array<Expr>):Expr;
 }
@@ -75,6 +76,9 @@ class SimpleGenerator implements GeneratorObject {
         v.formatString(pos);
       case v: v;
     };
+    
+  public function flatten(pos:Position, children:Array<Expr>):Expr
+    return makeNode({ pos: pos, value: '...' }, [], children);
   
   public function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr     
     return doMakeNode(

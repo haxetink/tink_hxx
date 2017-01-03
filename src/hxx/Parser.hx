@@ -157,7 +157,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           }
           else if (kwd('for')) {
             var head = argExpr().sure() + expect('>');
-            ret.push(macro [for ($head) $a{parseChildren('for')}]);
+            ret.push(gen.flatten(head.pos, [macro for ($head) $a{parseChildren('for')}]));
           }
           else if (kwd('switch')) 
             ret.push(parseSwitch());
@@ -258,8 +258,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             a[a.length - 1].pos;
         }
       
-      var cons = macro @:pos(posOf(cons)) $a{cons};
-      var alt = macro @:pos(posOf(alt)) $a{alt};
+      var cons = gen.flatten(posOf(cons), cons);
+      var alt = gen.flatten(posOf(alt), alt);
       
       return macro @:pos(cond.pos) if ($cond) $cons else $alt;
     }
