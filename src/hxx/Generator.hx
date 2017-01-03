@@ -14,22 +14,6 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
   @:from static function ofFunction(f:StringAt->Expr->Option<Expr>->Expr):Generator {
     return new SimpleGenerator(Positions.sanitize(null), f);
   }
-}
-
-interface GeneratorObject { 
-  function string(s:StringAt):Option<Expr>;
-  function flatten(pos:Position, children:Array<Expr>):Expr;
-  function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr;
-  function root(children:Array<Expr>):Expr;
-}
-
-class SimpleGenerator implements GeneratorObject { 
-  var pos:Position;
-  var doMakeNode:StringAt->Expr->Option<Expr>->Expr;
-  public function new(pos, doMakeNode) {
-    this.pos = pos;
-    this.doMakeNode = doMakeNode;
-  }
   
   static public function trimString(s:String) {
     
@@ -64,8 +48,54 @@ class SimpleGenerator implements GeneratorObject {
     return s.substring(pos, max);
   }
   
+  static public function applySplats(attr:Expr, ?customAttributes:String) 
+    return
+      switch attr.expr {
+        case EObjectDecl(fields):
+          var ext = [],
+              std = [],
+              splats = [];
+              
+          for (f in fields)
+            switch f.field {
+              case '...': splats.push(f.expr);
+              case _.indexOf('-') => -1: std.push(f);
+              default: 
+                if (customAttributes == null)
+                  f.expr.reject('invalid field ${f.field}');
+                else
+                  ext.push(f);
+            }
+            
+          if (ext.length > 0)
+            std.push({
+              field: customAttributes,
+              expr: { expr: EObjectDecl(ext), pos: attr.pos },
+            });
+            
+          splats.unshift({ expr: EObjectDecl(std), pos: attr.pos });
+          attr = macro @:pos(attr.pos) hxx.Splat.objects($a{splats});
+        default: throw 'assert';
+      }    
+}
+
+interface GeneratorObject { 
+  function string(s:StringAt):Option<Expr>;
+  function flatten(pos:Position, children:Array<Expr>):Expr;
+  function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr;
+  function root(children:Array<Expr>):Expr;
+}
+
+class SimpleGenerator implements GeneratorObject { 
+  var pos:Position;
+  var doMakeNode:StringAt->Expr->Option<Expr>->Expr;
+  public function new(pos, doMakeNode) {
+    this.pos = pos;
+    this.doMakeNode = doMakeNode;
+  }
+  
   public function string(s:StringAt) 
-    return switch trimString(s.value) {
+    return switch Generator.trimString(s.value) {
       case '': None;
       case v: Some(macro @:pos(s.pos) $v{v});
     }    
