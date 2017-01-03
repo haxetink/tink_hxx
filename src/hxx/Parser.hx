@@ -226,17 +226,18 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     
     var last = false;
     while (!last) {
+      var arg = argExpr().sure();
       cases.push({
-        values: [argExpr().sure()],
+        values: [arg],
         guard: (if (allow('if')) argExpr().sure() else null) + expect('>'),
         expr:
           try {
             last = true;
-            macro $a{parseChildren('switch')};
+            gen.flatten(arg.pos, parseChildren('switch'));
           }
           catch (e:Case) {
             last = false;
-            macro $a{e.children};
+            gen.flatten(arg.pos, e.children);
           }
       });
     }
