@@ -105,6 +105,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         die('unexpected {');
       }
       var attr = withPos(ident().sure());
+        
       expect('=');
       
       attrs.push(
@@ -275,7 +276,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   static var IDENT_START = UPPER || LOWER || '_'.code;
-  static var IDENT_CONTD = IDENT_START || DIGIT;
+  static var IDENT_CONTD = IDENT_START || DIGIT || '-'.code;
   
   function ident(here = false) 
     return 
