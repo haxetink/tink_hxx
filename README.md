@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/back2dos/hxx.svg?branch=master)](https://travis-ci.org/back2dos/hxx)
+
 # HXX = JSX - JS + HX
 
 This library provides a parser for JSX-like syntax in Haxe. To use it, you must write a generator yourself. See [`vdom.VDom.hxx` in js-virtual-dom](https://github.com/back2dos/js-virtual-dom) for an example. Each generator leads to a slightly different flavor of the language. Here you will find all the features available in HXX, but note that every flavor may handle things a bit differently.
