@@ -99,9 +99,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       
       if (allow('{')) {
         var pos = pos;
-        if (allow('...'))
-          die('spread not implemented', pos...this.pos);
-          
+        
+        if (allow('...')) {
+          attrs.push(new NamedWith({ pos: makePos(pos, this.pos), value: '...' }, ballancedExpr('{', '}') ));
+          continue;
+        }
         die('unexpected {');
       }
       var attr = withPos(ident().sure());
@@ -157,7 +159,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           }
           else if (kwd('for')) {
             var head = argExpr().sure() + expect('>');
-            ret.push(gen.flatten(head.pos, [macro for ($head) $a{parseChildren('for')}]));
+            ret.push(gen.flatten(head.pos, [macro for ($head) ${gen.flatten(head.pos, parseChildren('for'))}]));
           }
           else if (kwd('switch')) 
             ret.push(parseSwitch());
