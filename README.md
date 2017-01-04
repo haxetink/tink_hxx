@@ -73,11 +73,11 @@ For loops are pretty straight forward:
 
 ## Spread
   
-Currently, the spread operator is not supported.
+HXX has the capacity to deal with spreads, e.g. `<someTag {...properties} />`. 
 
 ## Whitespace
 
-The treatment of whitespace depends on whether the generated structure even has any notion of whitespace or not. All HXX flavours can rely on `hxx.Generator.SimpleGenerator.trimString` which handles whitespace in a manner that is quite consistent with JSX:
+The treatment of whitespace depends on whether the generated structure even has any notion of whitespace or not. All HXX flavours can rely on `hxx.Generator.trimString` which handles whitespace in a manner that is quite consistent with JSX:
   
 - white space on a single line makes it to the output
 - white space that includes a line break is ignored

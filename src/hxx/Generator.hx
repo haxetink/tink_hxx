@@ -74,7 +74,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
             });
             
           splats.unshift({ expr: EObjectDecl(std), pos: attr.pos });
-          attr = macro @:pos(attr.pos) hxx.Splat.objects($a{splats});
+          attr = macro @:pos(attr.pos) hxx.Merge.objects($a{splats});
         default: throw 'assert';
       }    
 }

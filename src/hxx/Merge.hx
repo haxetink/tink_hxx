@@ -15,7 +15,7 @@ typedef Lookup = {
 }
 #end
 
-class Splat {
+class Merge {
 
   macro static public function objects(primary:Expr, rest:Array<Expr>) {
     function combine(expected:Lookup) {
