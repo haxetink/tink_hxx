@@ -44,7 +44,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }
   
-  function parseExpr(source, pos)
+  function parseExpr(source, pos) 
     return Context.parseInlineString(source, pos);
   
   function simpleIdent() {

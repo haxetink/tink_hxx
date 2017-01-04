@@ -9,11 +9,76 @@ using StringTools;
 using tink.MacroApi;
 using tink.CoreApi;
 
+typedef GeneratorOptions = {
+  var child(default, null):ComplexType;
+  @:optional var customAttributes(default, null):String;
+  @:optional var flatten(default, null):Expr->Expr;
+}
+
 @:forward
 abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
   @:from static function ofFunction(f:StringAt->Expr->Option<Expr>->Expr):Generator {
     return new SimpleGenerator(Positions.sanitize(null), f);
   }
+  
+  @:from static function fromOptions(options:GeneratorOptions):Generator {
+    function get<V>(o:{ var flatten(default, null): V; }) return o.flatten;
+    var flatten = 
+      if (null == get(options)) {
+        var call = (options.child.toType().sure().getID() + '.flatten').resolve();
+        function (e:Expr) return macro @:pos(e.pos) $call($e);
+      }
+      else
+        options.flatten;
+    
+    function coerce(children:Option<Expr>) 
+      return 
+        switch options.child {
+          case null: children;
+          case ct:
+            children.map(function (e) return switch e {
+              case macro $a{children}:
+                return {
+                  pos: e.pos,
+                  expr: EArrayDecl(
+                    [for (c in children) switch c {
+                      case macro for ($head) $body: c;
+                      default: macro @:pos(c.pos) ($c : $ct);
+                    }]
+                  )
+                }
+              case v: Context.fatalError('Cannot generate ${v.toString()}', v.pos);      
+            });
+        }
+    
+    
+    var gen:GeneratorObject = new SimpleGenerator(
+      Positions.sanitize(null),    
+      function (name:StringAt, attr:Expr, children:Option<Expr>) {
+              
+        if (name.value == '...')           
+          return 
+            flatten(switch coerce(children) {
+              case Some(v): v;
+              default: macro [];
+            });
+        
+        var args = [Generator.applySplats(attr, options.customAttributes)];
+        
+        switch coerce(children) {
+          case Some(v): 
+            args.push(v);
+          default:
+        }
+        return 
+          if (name.value.charAt(0).toLowerCase() != name.value.charAt(0))
+            name.value.instantiate(args, name.pos);
+          else 
+            macro @:pos(name.pos) $i{name.value}($a{args});
+      }
+    );
+    return gen;
+  } 
   
   static public function trimString(s:String) {
     
