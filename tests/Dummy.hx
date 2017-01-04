@@ -18,7 +18,9 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
         ret;
       case v:
         var ret = '<$v';
-        for (key in this.attr.keys())
+        var keys = [for (key in this.attr.keys()) key];
+        keys.sort(Reflect.compare);
+        for (key in keys)
           ret += ' $key="${this.attr[key]}"';
         ret += '>';
         if (this.children != null)
@@ -42,7 +44,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
   
   macro static public function dom(e) 
     return macro @:pos(e.pos) (
-      ${hxx.Parser.parse(e, function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
+      ${tink.hxx.Parser.parse(e, function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
         return
           if (name.value == '...') {
             
@@ -56,7 +58,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
           else
             macro @:pos(name.pos) Dummy.tag(
               $v{name.value},
-              ${hxx.Generator.applySplats(attr)},
+              ${tink.hxx.Generator.applySplats(attr)},
               ${switch children {
                 case Some(v): v;
                 default: macro null;
