@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Add control structures.",
-	"version": "0.1.0",
+	"releasenote": "Rerelease prior hxx as tink_hxx.",
+	"version": "0.7.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",

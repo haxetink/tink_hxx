@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/back2dos/hxx.svg?branch=master)](https://travis-ci.org/back2dos/hxx)
+[![Build Status](https://travis-ci.org/haxetink/tink_hxx.svg?branch=master)](https://travis-ci.org/haxetink/tink_hxx)
 
 # HXX = JSX - JS + HX
 
