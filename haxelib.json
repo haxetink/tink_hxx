@@ -1,7 +1,8 @@
 {
-	"name": "hxx",
+	"name": "tink_hxx",
 	"license": "MIT",
 	"tags": [
+    "tink",
 		"hxx",
 		"jsx",
 		"vdom",
@@ -14,8 +15,8 @@
 		"back2dos"
 	],
 	"releasenote": "Add control structures.",
-	"version": "0.5.0",
-	"url": "https://github.com/back2dos/hxx/",
+	"version": "0.1.0",
+	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
 		"tink_macro": ""

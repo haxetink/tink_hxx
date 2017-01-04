@@ -1,4 +1,4 @@
-package hxx;
+package tink.hxx;
 
 import haxe.macro.Expr;
 

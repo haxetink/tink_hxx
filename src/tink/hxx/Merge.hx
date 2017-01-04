@@ -1,4 +1,4 @@
-package hxx;
+package tink.hxx;
 
 #if macro
 import haxe.Constraints.IMap;

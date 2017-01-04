@@ -1,7 +1,7 @@
-package hxx;
+package tink.hxx;
 
 import haxe.macro.Expr;
-import hxx.Generator;
+import tink.hxx.Generator;
 import tink.parse.Char.*;
 import tink.parse.ParserBase;
 import tink.parse.StringSlice;

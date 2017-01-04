@@ -1,4 +1,4 @@
-package hxx;
+package tink.hxx;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
@@ -74,7 +74,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
             });
             
           splats.unshift({ expr: EObjectDecl(std), pos: attr.pos });
-          attr = macro @:pos(attr.pos) hxx.Merge.objects($a{splats});
+          attr = macro @:pos(attr.pos) tink.hxx.Merge.objects($a{splats});
         default: throw 'assert';
       }    
 }
