@@ -81,8 +81,22 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return ret;          
   }
   
-  function kwd(name:String) 
-    return config.noControlStructures != true && allowHere(name);
+  function kwd(name:String) {
+    if (config.noControlStructures) return false;
+    var pos = pos;
+    var isIf = isNext('if');
+    
+    //if (isIf) trace(ident(true));
+    var found = switch ident(true) {
+      case Success(v) if (v == name): true;
+      default: false;
+    }
+    //trace(name);
+    //trace(found);
+    //trace('----');
+    if (!found) this.pos = pos;
+    return found;
+  }
   
   function parseChild() {
     var name = withPos(ident(true).sure());
