@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Various bug fixes.",
-	"version": "0.8.1",
+	"releasenote": "Integration with tink_state",
+	"version": "0.9.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
