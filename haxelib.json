@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Allow for \"namespaced\" tags.",
-	"version": "0.8.0",
+	"releasenote": "Various bug fixes.",
+	"version": "0.8.1",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
