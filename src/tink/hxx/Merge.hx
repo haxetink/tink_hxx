@@ -93,7 +93,8 @@ class Merge {
                   keys: function () return [].iterator(),
                 });
               case TAbstract(_.get() => { pack: ['tink', 'state'], name: 'Observable' }, [t]):
-                macro @:pos(primary.pos) tink.state.Observable.auto(function () return ${merge(t)});
+                var ct = t.toComplex();
+                macro @:pos(primary.pos) tink.state.Observable.auto(function ():$ct return ${merge(t)});
               case v: 
                 primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
             }
