@@ -2,7 +2,7 @@
 	"name": "tink_hxx",
 	"license": "MIT",
 	"tags": [
-    "tink",
+		"tink",
 		"hxx",
 		"jsx",
 		"vdom",
@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Rerelease prior hxx as tink_hxx.",
-	"version": "0.7.0",
+	"releasenote": "Allow for \"namespaced\" tags.",
+	"version": "0.8.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
