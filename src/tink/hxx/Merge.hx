@@ -75,23 +75,29 @@ class Merge {
         EObjectDecl(result).at(),
       ].toBlock();      
     }
+    
     return switch Context.getExpectedType() {
       case null: 
         primary.pos.error('unable to determine expected object type');
       case v: 
-        switch v.follow() {
-          case TAnonymous([for (f in _.get().fields) f.name => { type: f.type, optional: f.meta.has(':optional') } ] => expected): 
-            combine(expected);
-          case TDynamic(v):
-            var removed = new Map();
-            combine({
-              get: function (name) return if (removed[name]) null else { optional: false, type: v },
-              remove: function (name) return !removed[name] && (removed[name] = true),
-              keys: function () return [].iterator(),
-            });
-          case v: 
-            primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
-        }
+        function merge(expected:Type)
+          return 
+            switch expected.follow() {
+              case TAnonymous([for (f in _.get().fields) f.name => { type: f.type, optional: f.meta.has(':optional') } ] => expected): 
+                combine(expected);
+              case TDynamic(v):
+                var removed = new Map();
+                combine({
+                  get: function (name) return if (removed[name]) null else { optional: false, type: v },
+                  remove: function (name) return !removed[name] && (removed[name] = true),
+                  keys: function () return [].iterator(),
+                });
+              case TAbstract(_.get() => { pack: ['tink', 'state'], name: 'Observable' }, [t]):
+                macro @:pos(primary.pos) tink.state.Observable.auto(function () return ${merge(t)});
+              case v: 
+                primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
+            }
+        merge(v);
     }
   }
     
