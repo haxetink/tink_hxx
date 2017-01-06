@@ -293,7 +293,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   static var IDENT_START = UPPER || LOWER || '_'.code;
-  static var IDENT_CONTD = IDENT_START || DIGIT || '-'.code;
+  static var IDENT_CONTD = IDENT_START || DIGIT || '-'.code || '.'.code;
   
   function ident(here = false) 
     return 

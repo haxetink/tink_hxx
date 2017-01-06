@@ -63,18 +63,21 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
               default: macro [];
             });
         
-        var args = [Generator.applySplats(attr, options.customAttributes)];
+        var args = [Generator.applySpreads(attr, options.customAttributes)];
         
         switch coerce(children) {
           case Some(v): 
             args.push(v);
           default:
         }
-        return 
-          if (name.value.charAt(0).toLowerCase() != name.value.charAt(0))
-            name.value.instantiate(args, name.pos);
-          else 
-            macro @:pos(name.pos) $i{name.value}($a{args});
+        
+        return
+          switch Context.parseInlineString(name.value, name.pos) {
+            case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
+              name.value.instantiate(args, name.pos);
+            case call: macro @:pos(name.pos) $call($a{args});
+          }
+        
       }
     );
     return gen;
@@ -113,7 +116,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
     return s.substring(pos, max);
   }
   
-  static public function applySplats(attr:Expr, ?customAttributes:String) 
+  static public function applySpreads(attr:Expr, ?customAttributes:String) 
     return
       switch attr.expr {
         case EObjectDecl(fields):

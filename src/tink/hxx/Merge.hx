@@ -79,7 +79,7 @@ class Merge {
             });
             //throw v;
           case v: 
-            throw v.toString();
+            primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
         }
     }
   }
