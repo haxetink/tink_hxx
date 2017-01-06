@@ -10,8 +10,9 @@ using haxe.macro.Tools;
 using tink.MacroApi;
 
 typedef Lookup = {
-  function get(key:String):Type;
+  function get(key:String):{ optional:Bool, type:Type };
   function remove(key:String):Bool;
+  function keys():Iterator<String>;
 }
 #end
 
@@ -27,7 +28,7 @@ class Merge {
         EObjectDecl(result);
       }
       function addField(name:String, expr:Expr) {
-        var ct = expected.get(name).toComplex();
+        var ct = expected.get(name).type.toComplex();
         result.push({ field: name, expr: macro @:pos(expr.pos) ($expr : $ct) });
         expected.remove(name);
       }
@@ -60,24 +61,34 @@ class Merge {
           }
       }
       
+      var missing = [
+        for (left in expected.keys()) if (!expected.get(left).optional) left
+      ];
+      
+      switch missing {
+        case []:
+        case v: primary.reject('missing fields: ' + missing.join(', '));
+      }
+      
       return [
         EVars(vars).at(),
         EObjectDecl(result).at(),
       ].toBlock();      
     }
     return switch Context.getExpectedType() {
-      case null: throw 'unknown';
+      case null: 
+        primary.pos.error('unable to determine expected object type');
       case v: 
         switch v.follow() {
-          case TAnonymous([for (f in _.get().fields) f.name => f.type] => expected): 
+          case TAnonymous([for (f in _.get().fields) f.name => { type: f.type, optional: f.meta.has(':optional') } ] => expected): 
             combine(expected);
           case TDynamic(v):
             var removed = new Map();
             combine({
-              get: function (name) return if (removed[name]) null else v,
+              get: function (name) return if (removed[name]) null else { optional: false, type: v },
               remove: function (name) return !removed[name] && (removed[name] = true),
+              keys: function () return [].iterator(),
             });
-            //throw v;
           case v: 
             primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
         }

@@ -58,7 +58,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
           else
             macro @:pos(name.pos) Dummy.tag(
               $v{name.value},
-              ${tink.hxx.Generator.applySplats(attr)},
+              ${tink.hxx.Generator.applySpreads(attr)},
               ${switch children {
                 case Some(v): v;
                 default: macro null;

@@ -180,7 +180,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           else if (kwd('if')) 
             ret.push(parseIf());
           else if (kwd('else')) 
-            throw new Else(ret);
+            throw new Else(ret, false);
+          else if (kwd('elseif')) 
+            throw new Else(ret, true);
           else if (kwd('case')) 
             throw new Case(ret);
           else 
@@ -285,7 +287,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         make(parseChildren('if'), []);
       }
       catch (e:Else) {
-        if (allow('if')) 
+        if (e.elseif || switch ident() { case Success(v): if (v == 'if') true else die('unexpected $v', v.start...v.end); default: false; } ) 
           make(e.children, [parseIf()]);
         else
           expect('>') + make(e.children, parseChildren('if'));
@@ -346,18 +348,26 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 }
 
 private class Branch {
+  
   public var children(default, null):Array<Expr>;
+  
   public function new(children)
     this.children = children;
     
-  public function toString() {
+  public function toString() 
     return 'mispaced ${Type.getClassName(Type.getClass(this))}';
-  }    
 }
 
 private class Case extends Branch { 
   
 }
 private class Else extends Branch { 
-
+  
+  public var elseif(default, null):Bool;
+  
+  public function new(children, elseif) {
+    super(children);
+    this.elseif = elseif;
+  }
+  
 }
