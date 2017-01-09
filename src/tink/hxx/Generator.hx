@@ -63,19 +63,60 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
               default: macro [];
             });
         
-        var args = [Generator.applySpreads(attr, options.customAttributes)];
-        
-        switch coerce(children) {
-          case Some(v): 
-            args.push(v);
-          default:
-        }
-        
+        function getArgs(childrenAsArgs:Bool) 
+          return 
+            switch [childrenAsArgs, children] {
+              case [true, Some(macro $a{children})]:
+                switch attr.expr {
+                  case EObjectDecl(fields):
+                    for (c in children) 
+                      switch c {
+                        case macro $call($merge(${{ expr: EObjectDecl(forbidden) }}), $children):
+                          var name = call.getIdent().sure();
+                          
+                          switch forbidden[0] {
+                            case null:
+                            case f:
+                              f.expr.reject('node <$name> is assumed to be an attribute and therefore cannot have attributes of its own');
+                          }
+                          
+                          fields.push({
+                            field: name,
+                            expr: macro @:pos(children.pos) tink.hxx.Merge.complexAttribute(${flatten(children)}),
+                          });
+                        default:
+                          throw 'assert';
+                      }
+                    [Generator.applySpreads(attr, options.customAttributes)];
+                  default:
+                    throw 'assert';
+                }
+              case [false, _] | [_ , None]:
+                [Generator.applySpreads(attr, options.customAttributes)].concat(coerce(children).toArray());
+              default:
+                throw 'assert';
+            }
+                    
         return
           switch Context.parseInlineString(name.value, name.pos) {
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
-              name.value.instantiate(args, name.pos);
-            case call: macro @:pos(name.pos) $call($a{args});
+              
+              var cls = Context.getType(name.value).getClass();
+                
+              if (cls.constructor == null)
+                name.pos.error('Class ${name.value} has no constructor');
+                
+              var flatten = 
+                switch cls.constructor.get().type.reduce() {
+                  case TFun([tAttr, tChildren], _): false;
+                  case TFun([tAttr], _): true;
+                  default:
+                    name.pos.error('Constructor of ${name.value} does not seem suitable for HXX');
+                }
+                
+              name.value.instantiate(getArgs(flatten), name.pos);
+            
+            case call: macro @:pos(name.pos) $call($a{getArgs(false)});
           }
         
       }

@@ -14,6 +14,7 @@ using tink.CoreApi;
 
 typedef ParserConfig = {
   defaultExtension:String,
+  ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
   ?interceptTag:String->Option<StringAt->Expr>,
 }
@@ -86,14 +87,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var pos = pos;
     var isIf = isNext('if');
     
-    //if (isIf) trace(ident(true));
     var found = switch ident(true) {
       case Success(v) if (v == name): true;
       default: false;
     }
-    //trace(name);
-    //trace(found);
-    //trace('----');
+    
     if (!found) this.pos = pos;
     return found;
   }
@@ -159,7 +157,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       
       switch first(["${", "$", "{", "<"], text) {
         case Success("<"):
-          
           if (allowHere('!--')) 
             upto('-->', true);            
           else if (allowHere('!'))
@@ -239,7 +236,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   function parseSwitch() {
-    var cond = argExpr().sure() + expect('>') + expect('<case');
+    var target = 
+      (switch [argExpr(), config.defaultSwitchTarget] {
+        case [Success(v), _]: v;
+        case [Failure(v), null]: throw v;
+        case [_, v]: v;
+      }) + expect('>') + expect('<case');
+    
     var cases:Array<haxe.macro.Expr.Case> = [];
     
     var last = false;
@@ -259,7 +262,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           }
       });
     }
-    return ESwitch(cond, cases, null).at();
+    return ESwitch(target, cases, null).at();
   }
   
   function parseIf() {

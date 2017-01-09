@@ -17,9 +17,37 @@ typedef Lookup = {
 #end
 
 class Merge {
+  
+  macro static public function complexAttribute(e:Expr) {
+    return
+      switch Context.getExpectedType().reduce() {
+        case null:
+          throw 'assert';
+        case TFun([{ t: t }], _):
+          var ct = t.toComplex();
+          var before = switch t.getFields() {
+            case Success(f):
+              EVars([for (f in f) if (f.isPublic) {
+                type: null,
+                name: f.name,
+                expr: '__data__.${f.name}'.resolve(),
+              }]).at(e.pos);
+            default:
+              macro { };
+          }
+          return macro function (__data__:$ct) {
+            $before;
+            return $e;
+          }
+          
+        case v:
+          e;
+      }
+  }
 
   macro static public function objects(primary:Expr, rest:Array<Expr>) {
-    function combine(expected:Lookup) {
+    
+    function combine(type:Type, expected:Lookup) {
       var result = [],
           vars = [];
       
@@ -33,6 +61,9 @@ class Merge {
         expected.remove(name);
       }
       switch primary.expr {
+        case EObjectDecl([]) if (rest.length == 1):
+          var ct = type.toComplex();
+          return macro @:pos(rest[0].pos) (${rest[0]} : $ct);
         case EObjectDecl(given):
           for (f in given)
             switch expected.get(f.field) {
@@ -80,23 +111,38 @@ class Merge {
       case null: 
         primary.pos.error('unable to determine expected object type');
       case v: 
-        function merge(expected:Type)
+        function merge(expectedType:Type):Expr
           return 
-            switch expected.follow() {
+            switch expectedType.follow() {
               case TAnonymous([for (f in _.get().fields) f.name => { type: f.type, optional: f.meta.has(':optional') } ] => expected): 
-                combine(expected);
+                combine(expectedType, expected);
               case TDynamic(v):
                 var removed = new Map();
-                combine({
+                combine(expectedType, {
                   get: function (name) return if (removed[name]) null else { optional: false, type: v },
                   remove: function (name) return !removed[name] && (removed[name] = true),
                   keys: function () return [].iterator(),
                 });
               case TAbstract(_.get() => { pack: ['tink', 'state'], name: 'Observable' }, [t]):
-                var ct = t.toComplex();
-                macro @:pos(primary.pos) tink.state.Observable.auto(function ():$ct return ${merge(t)});
+                switch merge(t) {
+                  case macro ($single : $data):
+                    var et = expectedType.toComplex();
+                    if ((macro ($single : $et)).typeof().isSuccess())
+                      single;
+                    else
+                      macro @:pos(primary.pos) tink.state.Observable.auto(function ():$data return $single);
+                  case other:
+                    var ct = t.toComplex();
+                    macro @:pos(primary.pos) tink.state.Observable.auto(function ():$ct return $other);
+                }
               case v: 
-                primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
+                switch primary.expr {
+                  case EObjectDecl([]) if (rest.length == 1):
+                    var ct = v.toComplex();
+                    macro @:pos(rest[0].pos) (${rest[0]} : $ct);//TODO: this is essentially copy pasted from above
+                  default:
+                    primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
+                }
             }
         merge(v);
     }
