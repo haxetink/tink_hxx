@@ -25,8 +25,9 @@ class Merge {
           throw 'assert';
         case TFun([{ t: t }], _):
           var ct = t.toComplex();
-          var before = switch t.getFields() {
-            case Success(f):
+          var before = switch [t.getID(), t.getFields()] {
+            case ['Array' | 'String', _]: macro { };//TODO: handle maps as well
+            case [_, Success(f)]:
               EVars([for (f in f) if (f.isPublic) {
                 type: null,
                 name: f.name,
