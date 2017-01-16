@@ -24,6 +24,7 @@ class Merge {
         case null:
           throw 'assert';
         case TFun([{ t: t }], _):
+          
           var ct = t.toComplex();
           var before = switch [t.getID(), t.getFields()] {
             case ['Array' | 'String', _]: macro { };//TODO: handle maps as well
@@ -36,9 +37,16 @@ class Merge {
             default:
               macro { };
           }
+          
+          function substituteDollars(e:Expr)
+            return switch e {
+              case macro $i{"$"}: macro @:pos(e.pos) __data__;
+              default: e.map(substituteDollars);
+            }
+            
           return macro function (__data__:$ct) {
             $before;
-            return $e;
+            return ${substituteDollars(e)};
           }
           
         case v:

@@ -71,20 +71,45 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                   case EObjectDecl(fields):
                     for (c in children) 
                       switch c {
-                        case macro $call($merge(${{ expr: EObjectDecl(forbidden) }}), $children):
+                        case macro $call($merge(${{ expr: EObjectDecl(forbidden) }})):
+                          var name = call.getIdent().sure();
+                          call.reject('Empty node <$name /> found where complex property was expected');
+                        case macro $call($merge($a{args}), $children):
                           var name = call.getIdent().sure();
                           
-                          switch forbidden[0] {
-                            case null:
-                            case f:
-                              f.expr.reject('node <$name> is assumed to be an attribute and therefore cannot have attributes of its own');
+                          switch args[0] {
+                            case { expr: EObjectDecl([]) }:
+                            case { expr: EObjectDecl(forbidden) } :
+                              forbidden[0].expr.reject('node <$name> is assumed to be a complex property and therefore cannot have attributes of its own');
+                            default:
+                              throw 'assert';
                           }
+                          
+                          var args:Array<FunctionArg> = [for (e in args.slice(1)) {
+                            name: e.getIdent().sure(),
+                            type: null
+                          }];
+                          //${{ expr: EObjectDecl(forbidden) }}
                           
                           fields.push({
                             field: name,
-                            expr: macro @:pos(children.pos) tink.hxx.Merge.complexAttribute(${flatten(children)}),
+                            expr: 
+                              switch args {
+                                case []:
+                                  macro @:pos(children.pos) tink.hxx.Merge.complexAttribute(${flatten(children)});
+                                default: 
+                                  EFunction(null, { 
+                                    ret: null,
+                                    args: args,
+                                    expr: macro @:pos(call.pos) return ${flatten(children)}
+                                  }).at(call.pos);
+                              }
                           });
+                          
+                        case { expr: ENew(_, _) } :
+                          c.reject('Assuming complex property here, but got instantiation instead');
                         default:
+                          trace(c.toString());
                           throw 'assert';
                       }
                     [Generator.applySpreads(attr, options.customAttributes)];
@@ -101,7 +126,13 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
           switch Context.parseInlineString(name.value, name.pos) {
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
               
-              var cls = Context.getType(name.value).getClass();
+              var cls = 
+                try {
+                  Context.getType(name.value).getClass();
+                }
+                catch (s:String) {
+                  name.pos.error(s);
+                }
                 
               if (cls.constructor == null)
                 name.pos.error('Class ${name.value} has no constructor');
