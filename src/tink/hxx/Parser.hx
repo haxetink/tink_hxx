@@ -46,7 +46,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   function parseExpr(source, pos) 
-    return Context.parseInlineString(source, pos);
+    return 
+      try Context.parseInlineString(source, pos)
+      catch (e:haxe.macro.Error) throw e
+      catch (e:Dynamic) pos.error(e);
   
   function simpleIdent() {
     var name = withPos(ident(true).sure());
