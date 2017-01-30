@@ -16,7 +16,7 @@ typedef ParserConfig = {
   defaultExtension:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
-  ?interceptTag:String->Option<StringAt->Expr>,
+  //?interceptTag:String->Option<StringAt->Expr>, <--- consider adding this back
 }
 
 class Parser extends ParserBase<Position, haxe.macro.Error> { 
@@ -45,12 +45,25 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }
   
+  function processExpr(e:Expr) 
+    return
+      #if tink_syntaxhub
+        switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
+          case Some(f): f(e);
+          case None: e;
+        }
+      #else
+        e;
+      #end
+
   function parseExpr(source, pos) 
-    return 
-      try Context.parseInlineString(source, pos)
-      catch (e:haxe.macro.Error) throw e
-      catch (e:Dynamic) pos.error(e);
-  
+    return
+      processExpr( 
+        try Context.parseInlineString(source, pos)
+        catch (e:haxe.macro.Error) throw e
+        catch (e:Dynamic) pos.error(e)
+      );
+
   function simpleIdent() {
     var name = withPos(ident(true).sure());
     return macro @:pos(name.pos) $i{name.value};
