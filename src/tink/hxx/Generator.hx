@@ -126,19 +126,33 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
           switch Context.parseInlineString(name.value, name.pos) {
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
               
-              var cls = 
+              var ctor = 
                 try {
-                  Context.getType(name.value).getClass();
+                  switch Context.getType(name.value).reduce() {
+                    case TInst(_.get() => cl, _):
+                      if (cl.constructor == null)
+                        throw 'Class ${name.value} has no constructor';
+                      cl.constructor.get().type;
+                    case TAbstract(_.get().impl.get() => cl, _):
+                      var ret = null;
+                      for (f in cl.statics.get()) 
+                        if (f.name == '_new') {
+                          ret = f;
+                          break;
+                        }
+                      if (ret == null)
+                        throw 'Abstract ${name.value} has no constructor';
+                      ret.type;
+                    default:
+                      throw '${name.value} is neither class nor abstract';
+                  }
                 }
                 catch (s:String) {
                   name.pos.error(s);
                 }
                 
-              if (cls.constructor == null)
-                name.pos.error('Class ${name.value} has no constructor');
-                
               var flatten = 
-                switch cls.constructor.get().type.reduce() {
+                switch ctor.reduce() {
                   case TFun([tAttr, tChildren], _): false;
                   case TFun([tAttr], _): true;
                   default:
