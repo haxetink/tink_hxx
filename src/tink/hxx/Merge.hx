@@ -17,7 +17,16 @@ typedef Lookup = {
 #end
 
 class Merge {
-  
+  macro static public function lookup(name:String) {
+    var pos = Context.currentPos();
+    return 
+      if (Context.getLocalTVars().exists(name)) macro @:pos(pos) $i{name};
+      else 
+        try
+          Context.storeTypedExpr(Context.typeExpr(macro @:pos(pos) __data__.$name))
+        catch (e:Dynamic)
+          macro @:pos(pos) $i{name};
+  }
   macro static public function complexAttribute(e:Expr) {
     return
       switch Context.getExpectedType().reduce() {
@@ -26,14 +35,12 @@ class Merge {
         case TFun([{ t: t }], _):
           
           var ct = t.toComplex();
-          var before = switch [t.getID(), t.getFields()] {
-            case ['Array' | 'String', _]: macro { };//TODO: handle maps as well
+          var fields = new Map();
+          
+          switch [t.getID(), t.getFields()] {
+            case ['Array' | 'String', _]: //TODO: handle maps as well
             case [_, Success(f)]:
-              EVars([for (f in f) if (f.isPublic) {
-                type: null,
-                name: f.name,
-                expr: '__data__.${f.name}'.resolve(),
-              }]).at(e.pos);
+              for (f in f) if (f.isPublic) fields[f.name] = true;
             default:
               macro { };
           }
@@ -41,11 +48,12 @@ class Merge {
           function substituteDollars(e:Expr)
             return switch e {
               case macro $i{"$"}: macro @:pos(e.pos) __data__;
+              case macro $i{known} if (fields[known]): macro @:pos(e.pos) tink.hxx.Merge.lookup($v{known});
+              case macro tink.hxx.Merge.complexAttribute(_): e;
               default: e.map(substituteDollars);
             }
             
           return macro function (__data__:$ct) {
-            $before;
             return ${substituteDollars(e)};
           }
           
