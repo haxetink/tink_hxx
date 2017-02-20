@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Allow for named children and other niceties.",
-	"version": "0.10.0",
+	"releasenote": "Better tink_lang compatibility. Various other improvements.",
+	"version": "0.11.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
