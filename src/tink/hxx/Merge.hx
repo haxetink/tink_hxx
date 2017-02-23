@@ -8,6 +8,7 @@ import haxe.macro.Type;
 using haxe.macro.Context;
 using haxe.macro.Tools;
 using tink.MacroApi;
+using tink.CoreApi;
 
 typedef Lookup = {
   function get(key:String):{ optional:Bool, type:Type };
@@ -62,7 +63,7 @@ class Merge {
       }
   }
   #if macro
-  static public function mergeObjects(primary:Expr, rest:Array<Expr>, options:{ ?getField:{ name:String, owner:Type, expected:Type }->Expr, ?fixField:Expr->Expr }) {
+  static public function mergeObjects(primary:Expr, rest:Array<Expr>, options:MergeOptions) {
 
     function typed(expr:Expr, fallback:Expr->Expr) 
       return
@@ -78,12 +79,12 @@ class Merge {
       var result:Array<{ field:String, expr:Expr }> = [],
           vars:Array<Var> = [];
       
-      function addField(name:String, expr:Expr) {
-        var type = expected.get(name).type;
-        var ct = type.toComplex();
-        result.push({ 
-          field: name, 
-          expr: typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
+      function addField(owner, name:String, expr:Expr) {
+        var fType = expected.get(name).type;
+
+        function getDefault() {
+          var ct = fType.toComplex();
+          return typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
 
             var isFunction = 
               switch expr.typeof() {
@@ -92,30 +93,44 @@ class Merge {
               }
 
             return
-              switch type.reduce() {
+              switch fType.reduce() {
                 case TFun([_], _) | TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
                   macro @:pos(expr.pos) function (event) $expr;
                 case TFun([], _) if (!isFunction):
                   macro @:pos(expr.pos) function () $expr;
                 case v:
-                  e;
+                  if (options.fixField == null) e;
+                  else options.fixField(e);
               }
-          }) 
+          });
+        }
+        
+        result.push({ 
+          field: name, 
+          expr: options.genField({
+            name: name,
+            owner: owner,
+            expected: fType, 
+            getDefault: getDefault,
+          }),
         });
+        
         expected.remove(name);
       }
 
       switch primary.expr {
         case EObjectDecl([]) if (rest.length == 1):
           var ct = type.toComplex();
-          return macro @:pos(rest[0].pos) (${rest[0]} : $ct);
+          var ret = macro @:pos(rest[0].pos) (${rest[0]} : $ct);
+          if (ret.typeof().isSuccess())
+            return ret;
         case EObjectDecl(given):
           for (f in given)
             switch expected.get(f.field) {
               case null:
                 f.expr.reject('invalid field ${f.field}');
               default:
-                addField(f.field, f.expr);
+                addField(None, f.field, f.expr);
             }
         default: 
           throw 'assert';
@@ -128,12 +143,15 @@ class Merge {
           type: null, name: vName, expr: o,
         });
         
-        for (f in o.typeof().sure().getFields().sure()) 
+        var oType = o.typeof().sure();
+        var owner = Some(oType);
+
+        for (f in oType.getFields().sure()) 
           switch expected.get(f.name) {
             case null:
             default:
               var name = f.name;
-              addField(name, macro $i{vName}.$name);
+              addField(owner, name, macro $i{vName}.$name);
           }
       }
       
@@ -182,7 +200,23 @@ class Merge {
   }
   #end
   macro static public function objects(primary:Expr, rest:Array<Expr>)
-    return mergeObjects(primary, rest, {});
+    return mergeObjects(primary, rest, {
+      fixField: function (e) return e,
+      genField: function (ctx) return ctx.getDefault(),
+    });
     
 }
 
+#if macro
+typedef FieldMergeContext = { 
+  var name(default, null):String;
+  var owner(default, null):Option<Type>;
+  var expected(default, null):Type;
+  function getDefault():Expr;
+}
+
+typedef MergeOptions = {
+  function genField(ctx:FieldMergeContext):Expr;
+  function fixField(expr:Expr):Expr;
+}
+#end
