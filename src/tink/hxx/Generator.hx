@@ -13,6 +13,7 @@ typedef GeneratorOptions = {
   var child(default, null):ComplexType;
   @:optional var customAttributes(default, null):String;
   @:optional var flatten(default, null):Expr->Expr;
+  @:optional var merger(default, null):Expr;
 }
 
 @:forward
@@ -22,6 +23,12 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
   }
   
   @:from static function fromOptions(options:GeneratorOptions):Generator {
+    
+    var merger = switch options.merger {
+      case null: macro tink.hxx.Merge.objects;
+      case v: v;
+    }
+
     function get<V>(o:{ var flatten(default, null): V; }) return o.flatten;
     var flatten = 
       if (null == get(options)) {
@@ -89,7 +96,6 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                             name: e.getIdent().sure(),
                             type: null
                           }];
-                          //${{ expr: EObjectDecl(forbidden) }}
                           
                           fields.push({
                             field: name,
@@ -112,12 +118,12 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                           trace(c.toString());
                           throw 'assert';
                       }
-                    [Generator.applySpreads(attr, options.customAttributes)];
+                    [Generator.applySpreads(attr, options.customAttributes, merger)];
                   default:
                     throw 'assert';
                 }
               case [false, _] | [_ , None]:
-                [Generator.applySpreads(attr, options.customAttributes)].concat(coerce(children).toArray());
+                [Generator.applySpreads(attr, options.customAttributes, merger)].concat(coerce(children).toArray());
               default:
                 throw 'assert';
             }
@@ -202,7 +208,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
     return s.substring(pos, max);
   }
   
-  static public function applySpreads(attr:Expr, ?customAttributes:String) 
+  static public function applySpreads(attr:Expr, ?customAttributes:String, merger:Expr) 
     return
       switch attr.expr {
         case EObjectDecl(fields):
@@ -228,7 +234,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
             });
             
           splats.unshift({ expr: EObjectDecl(std), pos: attr.pos });
-          attr = macro @:pos(attr.pos) tink.hxx.Merge.objects($a{splats});
+          attr = macro @:pos(attr.pos) $merger($a{splats});
         default: throw 'assert';
       }    
 }

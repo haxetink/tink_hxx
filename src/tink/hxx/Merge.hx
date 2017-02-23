@@ -61,22 +61,50 @@ class Merge {
           e;
       }
   }
+  #if macro
+  static public function mergeObjects(primary:Expr, rest:Array<Expr>, options:{ ?getField:{ name:String, owner:Type, expected:Type }->Expr, ?fixField:Expr->Expr }) {
 
-  macro static public function objects(primary:Expr, rest:Array<Expr>) {
+    function typed(expr:Expr, fallback:Expr->Expr) 
+      return
+        try {
+          Context.storeTypedExpr(Context.typeExpr(expr));
+        }
+        catch (e:Dynamic) {
+          if (fallback == null) expr;
+          else fallback(expr);
+        }
     
     function combine(type:Type, expected:Lookup) {
-      var result = [],
-          vars = [];
+      var result:Array<{ field:String, expr:Expr }> = [],
+          vars:Array<Var> = [];
       
-      if (false) {
-        EVars(vars);
-        EObjectDecl(result);
-      }
       function addField(name:String, expr:Expr) {
-        var ct = expected.get(name).type.toComplex();
-        result.push({ field: name, expr: macro @:pos(expr.pos) ($expr : $ct) });
+        var type = expected.get(name).type;
+        var ct = type.toComplex();
+        result.push({ 
+          field: name, 
+          expr: typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
+
+            var isFunction = 
+              switch expr.typeof() {
+                case Success(_.reduce() => TFun(_, _) | TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
+                default: false;
+              }
+
+            return
+              switch type.reduce() {
+                case TFun([_], _) | TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
+                  macro @:pos(expr.pos) function (event) $expr;
+                case TFun([], _) if (!isFunction):
+                  macro @:pos(expr.pos) function () $expr;
+                case v:
+                  e;
+              }
+          }) 
+        });
         expected.remove(name);
       }
+
       switch primary.expr {
         case EObjectDecl([]) if (rest.length == 1):
           var ct = type.toComplex();
@@ -140,23 +168,11 @@ class Merge {
                   remove: function (name) return !removed[name] && (removed[name] = true),
                   keys: function () return [].iterator(),
                 });
-              case TAbstract(_.get() => { pack: ['tink', 'state'], name: 'Observable' }, [t]):
-                switch merge(t) {
-                  case macro ($single : $data):
-                    var et = expectedType.toComplex();
-                    if ((macro ($single : $et)).typeof().isSuccess())
-                      single;
-                    else
-                      macro @:pos(primary.pos) tink.state.Observable.auto(function ():$data return $single);
-                  case other:
-                    var ct = t.toComplex();
-                    macro @:pos(primary.pos) tink.state.Observable.auto(function ():$ct return $other);
-                }
               case v: 
                 switch primary.expr {
                   case EObjectDecl([]) if (rest.length == 1):
                     var ct = v.toComplex();
-                    macro @:pos(rest[0].pos) (${rest[0]} : $ct);//TODO: this is essentially copy pasted from above
+                    typed(macro @:pos(rest[0].pos) (${rest[0]} : $ct), null);
                   default:
                     primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
                 }
@@ -164,6 +180,9 @@ class Merge {
         merge(v);
     }
   }
+  #end
+  macro static public function objects(primary:Expr, rest:Array<Expr>)
+    return mergeObjects(primary, rest, {});
     
 }
 
