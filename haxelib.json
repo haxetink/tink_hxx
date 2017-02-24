@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Fix for 3.2.1",
-	"version": "0.12.1",
+	"releasenote": "Add a hint more of information to field merging context.",
+	"version": "0.12.2",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
