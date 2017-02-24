@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Better tink_lang compatibility. Various other improvements.",
-	"version": "0.11.0",
+	"releasenote": "Improve configurability for option based generators as well as spreads.",
+	"version": "0.12.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
