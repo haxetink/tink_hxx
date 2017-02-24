@@ -88,13 +88,16 @@ class Merge {
 
             var isFunction = 
               switch expr.typeof() {
-                case Success(_.reduce() => TFun(_, _) | TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
+                case Success(_.reduce() => TFun(_, _)): true;
+                case Success(TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
                 default: false;
               }
 
             return
               switch fType.reduce() {
-                case TFun([_], _) | TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
+                case TFun([_], _) if (!isFunction):
+                  macro @:pos(expr.pos) function (event) $expr;
+                case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
                   macro @:pos(expr.pos) function (event) $expr;
                 case TFun([], _) if (!isFunction):
                   macro @:pos(expr.pos) function () $expr;
