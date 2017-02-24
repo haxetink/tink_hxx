@@ -113,7 +113,8 @@ class Merge {
           expr: options.genField({
             name: name,
             owner: owner,
-            expected: fType, 
+            expected: fType,
+            original: expr,
             getDefault: getDefault,
           }),
         });
@@ -221,6 +222,7 @@ typedef FieldMergeContext = {
   var name(default, null):String;
   var owner(default, null):Option<Type>;
   var expected(default, null):Type;
+  var original(default, null):Expr;
   function getDefault():Expr;
 }
 
