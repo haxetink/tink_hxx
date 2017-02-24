@@ -118,12 +118,48 @@ class Merge {
         expected.remove(name);
       }
 
+      function decompose(rest:Array<Expr>) {
+        for (o in rest) {
+          var vName = '__' + vars.length;
+          
+          vars.push({
+            type: null, name: vName, expr: o,
+          });
+          
+          var oType = o.typeof().sure();
+          var owner = Some(oType);
+
+          for (f in oType.getFields().sure()) 
+            switch expected.get(f.name) {
+              case null:
+              default:
+                var name = f.name;
+                addField(owner, name, macro $i{vName}.$name);
+            }
+        }
+        
+        var missing = [
+          for (left in expected.keys()) if (!expected.get(left).optional) left
+        ];
+        
+        switch missing {
+          case []:
+          case v: primary.reject('missing fields: ' + missing.join(', '));
+        }
+        
+        return [
+          EVars(vars).at(),
+          EObjectDecl(result).at(),
+        ].toBlock();          
+      }
+
       switch primary.expr {
         case EObjectDecl([]) if (rest.length == 1):
           var ct = type.toComplex();
-          var ret = macro @:pos(rest[0].pos) (${rest[0]} : $ct);
-          if (ret.typeof().isSuccess())
-            return ret;
+          return typed(
+            macro @:pos(rest[0].pos) (${rest[0]} : $ct),
+            function (_) return options.decomposeSingle(rest[0], type, decompose)
+          );
         case EObjectDecl(given):
           for (f in given)
             switch expected.get(f.field) {
@@ -136,38 +172,7 @@ class Merge {
           throw 'assert';
       }
       
-      for (o in rest) {
-        var vName = '__' + vars.length;
-        
-        vars.push({
-          type: null, name: vName, expr: o,
-        });
-        
-        var oType = o.typeof().sure();
-        var owner = Some(oType);
-
-        for (f in oType.getFields().sure()) 
-          switch expected.get(f.name) {
-            case null:
-            default:
-              var name = f.name;
-              addField(owner, name, macro $i{vName}.$name);
-          }
-      }
-      
-      var missing = [
-        for (left in expected.keys()) if (!expected.get(left).optional) left
-      ];
-      
-      switch missing {
-        case []:
-        case v: primary.reject('missing fields: ' + missing.join(', '));
-      }
-      
-      return [
-        EVars(vars).at(),
-        EObjectDecl(result).at(),
-      ].toBlock();      
+      return decompose(rest);
     }
     
     return switch Context.getExpectedType() {
@@ -203,6 +208,7 @@ class Merge {
     return mergeObjects(primary, rest, {
       fixField: function (e) return e,
       genField: function (ctx) return ctx.getDefault(),
+      decomposeSingle: function (e, _, d) return d([e]),
     });
     
 }
@@ -216,6 +222,7 @@ typedef FieldMergeContext = {
 }
 
 typedef MergeOptions = {
+  function decomposeSingle(expr:Expr, expected:Type, decomposer:Array<Expr>->Expr):Expr;
   function genField(ctx:FieldMergeContext):Expr;
   function fixField(expr:Expr):Expr;
 }
