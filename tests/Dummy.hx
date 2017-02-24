@@ -58,7 +58,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
           else
             macro @:pos(name.pos) Dummy.tag(
               $v{name.value},
-              ${tink.hxx.Generator.applySpreads(attr)},
+              ${tink.hxx.Generator.applySpreads(attr, macro tink.hxx.Merge.objects)},
               ${switch children {
                 case Some(v): v;
                 default: macro null;
