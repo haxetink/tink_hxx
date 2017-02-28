@@ -35,7 +35,7 @@ class Merge {
           throw 'assert';
         case TFun([{ t: t }], _):
           
-          var ct = t.toComplex();
+          var ct = t.toComplex({ direct: true });
           var fields = new Map();
           
           switch [t.getID(), t.getFields()] {
@@ -68,7 +68,8 @@ class Merge {
     function typed(expr:Expr, fallback:Expr->Expr) 
       return
         try {
-          Context.storeTypedExpr(Context.typeExpr(expr));
+          var e = Context.storeTypedExpr(Context.typeExpr(expr));
+          macro @:pos(expr.pos) @orig($expr) $e;
         }
         catch (e:Dynamic) {
           if (fallback == null) expr;
@@ -83,7 +84,7 @@ class Merge {
         var fType = expected.get(name).type;
 
         function getDefault() {
-          var ct = fType.toComplex();
+          var ct = fType.toComplex({ direct: true });
           return typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
 
             var isFunction = 
@@ -138,7 +139,7 @@ class Merge {
               case null:
               default:
                 var name = f.name;
-                addField(owner, name, macro $i{vName}.$name);
+                addField(owner, name, macro @:pos(o.pos) $i{vName}.$name);
             }
         }
         
@@ -159,7 +160,7 @@ class Merge {
 
       switch primary.expr {
         case EObjectDecl([]) if (rest.length == 1):
-          var ct = type.toComplex();
+          var ct = type.toComplex({ direct: true });
           return typed(
             macro @:pos(rest[0].pos) (${rest[0]} : $ct),
             function (_) return options.decomposeSingle(rest[0], type, decompose)
@@ -198,7 +199,7 @@ class Merge {
               case v: 
                 switch primary.expr {
                   case EObjectDecl([]) if (rest.length == 1):
-                    var ct = v.toComplex();
+                    var ct = v.toComplex({ direct: true });
                     typed(macro @:pos(rest[0].pos) (${rest[0]} : $ct), null);
                   default:
                     primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
