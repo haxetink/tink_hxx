@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Add a hint more of information to field merging context.",
-	"version": "0.12.2",
+	"releasenote": "Workaround for Haxe issue #6063",
+	"version": "0.12.3",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
