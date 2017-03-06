@@ -83,33 +83,34 @@ class Merge {
       function addField(owner, name:String, expr:Expr) {
         var fType = expected.get(name).type;
 
-        function getDefault() {
-          var ct = fType.toComplex();
-          trace(ct.toString());
-          trace(expr.toString());
-          return typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
+        function getDefault() return
+          switch expr {
+            case macro tink.hxx.Merge.complexAttribute($_): expr;
+            default:
+              var ct = fType.toComplex();
 
-            var isFunction = 
-              switch expr.typeof() {
-                case Success(_.reduce() => TFun(_, _)): true;
-                case Success(TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
-                default: false;
-              }
+              typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
 
-            return
-              switch fType.reduce() {
-                case TFun([_], _) if (!isFunction):
-                  macro @:pos(expr.pos) function (event) $expr;
-                case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
-                  macro @:pos(expr.pos) function (event) $expr;
-                case TFun([], _) if (!isFunction):
-                  macro @:pos(expr.pos) function () $expr;
-                case v:
-                  if (options.fixField == null) e;
-                  else options.fixField(e);
-              }
-          });
-        }
+                var isFunction = 
+                  switch expr.typeof() {
+                    case Success(_.reduce() => TFun(_, _)): true;
+                    case Success(TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
+                    default: false;
+                  }
+
+                return
+                  switch fType.reduce() {
+                    case TFun([_], _) if (!isFunction):
+                      macro @:pos(expr.pos) function (event) $expr;
+                    case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _) if (!isFunction):
+                      macro @:pos(expr.pos) function (event) $expr;
+                    case TFun([], _) if (!isFunction):
+                      macro @:pos(expr.pos) function () $expr;
+                    case v:
+                      e;
+                  }
+              });
+          }
         
         result.push({ 
           field: name, 
@@ -213,7 +214,6 @@ class Merge {
   #end
   macro static public function objects(primary:Expr, rest:Array<Expr>)
     return mergeObjects(primary, rest, {
-      fixField: function (e) return e,
       genField: function (ctx) return ctx.getDefault(),
       decomposeSingle: function (e, _, d) return d([e]),
     });
@@ -232,6 +232,5 @@ typedef FieldMergeContext = {
 typedef MergeOptions = {
   function decomposeSingle(expr:Expr, expected:Type, decomposer:Array<Expr>->Expr):Expr;
   function genField(ctx:FieldMergeContext):Expr;
-  function fixField(expr:Expr):Expr;
 }
 #end
