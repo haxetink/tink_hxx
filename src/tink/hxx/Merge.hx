@@ -35,7 +35,7 @@ class Merge {
           throw 'assert';
         case TFun([{ t: t }], _):
           
-          var ct = t.toComplex({ direct: true });
+          var ct = t.toComplex();
           var fields = new Map();
           
           switch [t.getID(), t.getFields()] {
@@ -84,7 +84,9 @@ class Merge {
         var fType = expected.get(name).type;
 
         function getDefault() {
-          var ct = fType.toComplex({ direct: true });
+          var ct = fType.toComplex();
+          trace(ct.toString());
+          trace(expr.toString());
           return typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
 
             var isFunction = 
@@ -160,7 +162,7 @@ class Merge {
 
       switch primary.expr {
         case EObjectDecl([]) if (rest.length == 1):
-          var ct = type.toComplex({ direct: true });
+          var ct = type.toComplex();
           return typed(
             macro @:pos(rest[0].pos) (${rest[0]} : $ct),
             function (_) return options.decomposeSingle(rest[0], type, decompose)
@@ -199,7 +201,7 @@ class Merge {
               case v: 
                 switch primary.expr {
                   case EObjectDecl([]) if (rest.length == 1):
-                    var ct = v.toComplex({ direct: true });
+                    var ct = v.toComplex();
                     typed(macro @:pos(rest[0].pos) (${rest[0]} : $ct), null);
                   default:
                     primary.pos.error('Attempting to call a function that expects ${v.toString()} instead of attributes');
