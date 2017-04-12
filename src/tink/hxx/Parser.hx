@@ -16,6 +16,7 @@ typedef ParserConfig = {
   defaultExtension:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
+  ?isVoid:String->Bool,
   //?interceptTag:String->Option<StringAt->Expr>, <--- consider adding this back
 }
 
@@ -25,7 +26,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   var fileName:String;
   var offset:Int;
   var config:ParserConfig;
-  
+  var isVoid:String->Bool;
   
   public function new(fileName, source, offset, gen, config) {
     this.fileName = fileName;
@@ -33,6 +34,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     this.offset = offset;
     this.config = config;
     super(source);
+    
+    function get<T>(o:{ var isVoid(default, null):T; }) return o.isVoid;
+
+    this.isVoid = switch get(config) {
+      case null: function (_) return false;
+      case v: v;
+    }
   }
   
   function withPos(s:StringSlice, ?transform:String->String):StringAt {
@@ -87,7 +95,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var start = pos;
     var ret = null;
     do {
-      upto(close);
+      if (!upto(close).isSuccess())
+        die('Missing corresponding `$close`', start...start+1);
       
       var inner = withPos(source[start...pos-1]);
       
@@ -116,7 +125,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var name = withPos(ident(true).sure());
     
     var hasChildren = true;
-    var attrs = new Array<NamedWith<StringAt, Expr>>();
+    var attrs = new Array<Attribute>();
     
     while (!allow('>')) {
       if (allow('/')) {
@@ -129,30 +138,28 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         var pos = pos;
         
         if (allow('...')) {
-          attrs.push(new NamedWith({ pos: makePos(pos, this.pos), value: '...' }, ballancedExpr('{', '}') ));
+          attrs.push(Splat(ballancedExpr('{', '}')));
           continue;
         }
         die('unexpected {');
       }
       var attr = withPos(ident().sure());
-        
-      expect('=');
-      
+              
       attrs.push(
-        new NamedWith(
-          attr,
-          switch argExpr() {
+        if (allow('=')) 
+          Regular(attr, switch argExpr() {
             case Success(e): e;
             default:
               var s = parseString();
               EConst(CString(s.value)).at(s.pos);
-          }
-        )
+          })
+        else
+          Empty(attr)
       );
     }
     
     return
-      gen.makeNode(name, attrs, if (hasChildren) parseChildren(name.value) else []);
+      gen.makeNode(name, attrs, if (hasChildren && !isVoid(name.value)) parseChildren(name.value) else []);
   }
   
   function parseString()
@@ -161,8 +168,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   function parseChildren(?closing:String):Array<Expr> {
     var ret = [];      
     
-    while (pos < max) {
-       
+    while (pos < max) {  
       
       function text(slice) {
         switch gen.string(withPos(slice, StringTools.htmlUnescape)) {
@@ -181,7 +187,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             var found = ident(true).sure();
             expectHere('>');
             if (found != closing)
-              die('found </$found> but expected </$closing>', found.start...found.end);
+              die(
+                if (isVoid(found))
+                  'invalid closing tag for void element <$found>'
+                else
+                  'found </$found> but expected </$closing>', 
+                found.start...found.end
+              );
             return ret;
           }
           else if (kwd('for')) {

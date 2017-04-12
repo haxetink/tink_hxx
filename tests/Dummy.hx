@@ -1,10 +1,14 @@
 package;
 import haxe.DynamicAccess;
-import tink.Stringly;
 
-abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy> }) from { name:String, attr:Dynamic<Stringly>, children:Array<Dummy> } { 
+abstract AttrVal(String) from String to String {
+  @:from static function ofBool(b:Bool):AttrVal
+    return if (b) "" else null;
+}
 
-  static public function tag(name:String, attr:Dynamic<Stringly>, ?children:Array<Dummy>):Dummy
+abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } { 
+
+  static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Array<Dummy>):Dummy
     return { name: name, attr: attr, children: children };
   
   public function format():String 
@@ -21,7 +25,11 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
         var keys = [for (key in this.attr.keys()) key];
         keys.sort(Reflect.compare);
         for (key in keys)
-          ret += ' $key="${this.attr[key]}"';
+          ret += switch this.attr[key] {
+            case null: '';
+            case '': ' $key';
+            case v: ' $key="$v"';
+          }
         ret += '>';
         if (this.children != null)
           for (c in this.children)
@@ -44,26 +52,35 @@ abstract Dummy({ name:String, attr:DynamicAccess<Stringly>, children:Array<Dummy
   
   macro static public function dom(e) 
     return macro @:pos(e.pos) (
-      ${tink.hxx.Parser.parse(e, function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
-        return
-          if (name.value == '...') {
-            
-            var children = switch children {
-              case Some(v): v;
-              default: macro [];
-            }
-            
-            macro @:pos(name.pos) Dummy.ofArray($children);
-          }
-          else
-            macro @:pos(name.pos) Dummy.tag(
-              $v{name.value},
-              ${tink.hxx.Generator.applySpreads(attr, macro tink.hxx.Merge.objects)},
-              ${switch children {
+      ${tink.hxx.Parser.parse(
+        e, 
+        function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
+          return
+            if (name.value == '...') {
+              
+              var children = switch children {
                 case Some(v): v;
-                default: macro null;
-              }} 
-            )
+                default: macro [];
+              }
+              
+              macro @:pos(name.pos) Dummy.ofArray($children);
+            }
+            else
+              macro @:pos(name.pos) Dummy.tag(
+                $v{name.value},
+                ${tink.hxx.Generator.applySpreads(attr, macro tink.hxx.Merge.objects)},
+                ${switch children {
+                  case Some(v): v;
+                  default: macro null;
+                }} 
+              ),
+        {
+          defaultExtension: 'hxx',
+          isVoid: function (s) return switch s {
+            case 'img': true;
+            default: false;
+          }
+        }
       )}
         :
       Array<Dummy>

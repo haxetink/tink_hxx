@@ -242,7 +242,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
 interface GeneratorObject { 
   function string(s:StringAt):Option<Expr>;
   function flatten(pos:Position, children:Array<Expr>):Expr;
-  function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr;
+  function makeNode(name:StringAt, attributes:Array<Attribute>, children:Array<Expr>):Expr;
   function root(children:Array<Expr>):Expr;
 }
 
@@ -270,15 +270,19 @@ class SimpleGenerator implements GeneratorObject {
   public function flatten(pos:Position, children:Array<Expr>):Expr
     return makeNode({ pos: pos, value: '...' }, [], children);
   
-  public function makeNode(name:StringAt, attributes:Array<NamedWith<StringAt, Expr>>, children:Array<Expr>):Expr     
+  function reserved(name:StringAt) 
+    return switch name.value {
+      case 'class': 'className';
+      case v: v;
+    }
+
+  public function makeNode(name:StringAt, attributes:Array<Attribute>, children:Array<Expr>):Expr     
     return doMakeNode(
       name,
-      EObjectDecl([for (a in attributes) {
-        field: switch a.name.value {
-          case 'class': 'className';
-          case v: v;
-        },
-        expr: interpolate(a.value),
+      EObjectDecl([for (a in attributes) switch a {
+        case Splat(e): { field: '...', expr: e };
+        case Empty(name): { field: reserved(name), expr: macro true };
+        case Regular(name, value): { field: reserved(name), expr: interpolate(value) };
       }]).at(name.pos),
       switch children {
         case null | []: None;

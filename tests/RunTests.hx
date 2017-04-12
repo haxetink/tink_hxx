@@ -55,9 +55,9 @@ class RunTests extends TestCase {
     
     assertDeepEqual([tag('test', {}, ['foo'])], dom('<test>foo</test>'));    
     assertDeepEqual([tag('test', {}, [' foo'])], dom('<test> foo</test>'));    
-    assertDeepEqual([tag('test', {}, ['foo  '])], dom('<test>foo  </test>'));    
+    assertDeepEqual([tag('test', {}, ['foo  '])], dom('<test>foo  </test>'));   
   }
-  
+
   function testSplat() {
     var o1 = { foo: 'o1', bar: '123' };
     var o2 = { foo: 'o2', baz: 'o2' };
