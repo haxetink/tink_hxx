@@ -2,6 +2,7 @@ package tink.hxx;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.Type;
 import tink.macro.Positions;
 
 using haxe.macro.Tools;
@@ -130,6 +131,16 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                     
         return
           switch Context.parseInlineString(name.value, name.pos) {
+            case macro super:
+              var ctor = 
+                try
+                  Context.getLocalClass().get().superClass.t.get().constructor.get()
+                catch (e:Dynamic) 
+                  name.pos.error('Invalid call to super');
+                
+              // name.pos.error(ctor);
+              macro @:pos(name.pos) super($a{getArgs(shouldFlatten(ctor.type, name))});
+              // throw 'whaaa?';
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
               
               var ctor = 
@@ -157,15 +168,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                   name.pos.error(s);
                 }
                 
-              var flatten = 
-                switch ctor.reduce() {
-                  case TFun([tAttr, tChildren], _): false;
-                  case TFun([tAttr], _): true;
-                  default:
-                    name.pos.error('Constructor of ${name.value} does not seem suitable for HXX');
-                }
-                
-              name.value.instantiate(getArgs(flatten), name.pos);
+              name.value.instantiate(getArgs(shouldFlatten(ctor, name)), name.pos);
             
             case call: macro @:pos(name.pos) $call($a{getArgs(false)});
           }
@@ -174,6 +177,15 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
     );
     return gen;
   } 
+
+  static function shouldFlatten(f:Type, name:StringAt)
+    return 
+      switch f.reduce() {
+        case TFun([tAttr, tChildren], _): false;
+        case TFun([tAttr], _): true;
+        default:
+          name.pos.error('${name.value} does not seem suitable for HXX');
+      }  
   
   static public function trimString(s:String) {
     
