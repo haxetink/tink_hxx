@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/haxetink/tink_hxx.svg?branch=master)](https://travis-ci.org/haxetink/tink_hxx)
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/haxetink/public)
 
 # HXX = JSX - JS + HX
 
