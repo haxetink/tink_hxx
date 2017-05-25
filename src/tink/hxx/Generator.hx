@@ -293,7 +293,7 @@ class SimpleGenerator implements GeneratorObject {
       name,
       EObjectDecl([for (a in attributes) switch a {
         case Splat(e): { field: '...', expr: e };
-        case Empty(name): { field: reserved(name), expr: macro true };
+        case Empty(name): { field: reserved(name), expr: macro @:pos(name.pos) true };
         case Regular(name, value): { field: reserved(name), expr: interpolate(value) };
       }]).at(name.pos),
       switch children {
