@@ -15,6 +15,14 @@ typedef GeneratorOptions = {
   @:optional var customAttributes(default, null):String;
   @:optional var flatten(default, null):Expr->Expr;
   @:optional var merger(default, null):Expr;
+  @:optional var instantiate(default, null):Instantiation->Option<Expr>;
+}
+
+typedef Instantiation = {
+  var name(default, null):StringAt;
+  var attr(default, null):Expr;
+  var children(default, null):Option<Expr>;
+  var type(default, null):Type;
 }
 
 @:forward
@@ -31,13 +39,20 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
     }
 
     function get<V>(o:{ var flatten(default, null): V; }) return o.flatten;
+
     var flatten = 
-      if (null == get(options)) {
+      if (Reflect.field(options, 'flatten') == null) {
         var call = (options.child.toType().sure().getID() + '.flatten').resolve();
         function (e:Expr) return macro @:pos(e.pos) $call($e);
       }
       else
         options.flatten;
+
+    var instantiate =
+      if (Reflect.field(options, 'instantiate') == null) 
+        function (_) return None;
+      else
+        options.instantiate;
     
     function coerce(children:Option<Expr>) 
       return 
@@ -143,32 +158,35 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
               // throw 'whaaa?';
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
               
-              var ctor = 
-                try {
-                  switch Context.getType(name.value).reduce() {
-                    case TInst(_.get() => cl, _):
-                      if (cl.constructor == null)
-                        throw 'Class ${name.value} has no constructor';
-                      cl.constructor.get().type;
-                    case TAbstract(_.get().impl.get() => cl, _):
-                      var ret = null;
-                      for (f in cl.statics.get()) 
-                        if (f.name == '_new') {
-                          ret = f;
-                          break;
-                        }
-                      if (ret == null)
-                        throw 'Abstract ${name.value} has no constructor';
-                      ret.type;
-                    default:
-                      throw '${name.value} is neither class nor abstract';
+              switch name.value.definedType() {
+                case None: name.pos.error('Unknown type ${name.value}');
+                case Some(t):
+                  switch instantiate({ name: name, attr: attr, children: children, type: t }) {
+                    case Some(v): v;
+                    case None:
+                      var ctor = switch t {
+                        case TInst(_.get() => cl, _):
+                          if (cl.constructor == null)
+                            throw 'Class ${name.value} has no constructor';
+                          cl.constructor.get().type;
+                        case TAbstract(_.get().impl.get() => cl, _):
+                          var ret = null;
+                          for (f in cl.statics.get()) 
+                            if (f.name == '_new') {
+                              ret = f;
+                              break;
+                            }
+                          if (ret == null)
+                            throw 'Abstract ${name.value} has no constructor';
+                          ret.type;
+                        default:
+                          throw '${name.value} is neither class nor abstract';
+                      }
+
+                      name.value.instantiate(getArgs(shouldFlatten(ctor, name)), name.pos);
                   }
-                }
-                catch (s:String) {
-                  name.pos.error(s);
-                }
-                
-              name.value.instantiate(getArgs(shouldFlatten(ctor, name)), name.pos);
+              }
+              
             
             case call: macro @:pos(name.pos) $call($a{getArgs(false)});
           }
@@ -220,7 +238,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
     return s.substring(pos, max);
   }
   
-  static public function applySpreads(attr:Expr, ?customAttributes:String, merger:Expr) 
+  static public function applySpreads(attr:Expr, ?customAttributes:String, merger:Expr, ?postprocess) 
     return
       switch attr.expr {
         case EObjectDecl(fields):
@@ -245,6 +263,8 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
               expr: { expr: EObjectDecl(ext), pos: attr.pos },
             });
             
+          if (postprocess != null)
+            postprocess(std);
           splats.unshift({ expr: EObjectDecl(std), pos: attr.pos });
           attr = macro @:pos(attr.pos) $merger($a{splats});
         default: throw 'assert';
