@@ -160,7 +160,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
               
               switch name.value.definedType() {
                 case None: name.pos.error('Unknown type ${name.value}');
-                case Some(t):
+                case Some(_.reduce() => t):
                   switch instantiate({ name: name, attr: attr, children: children, type: t }) {
                     case Some(v): v;
                     case None:
