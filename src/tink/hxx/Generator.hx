@@ -153,9 +153,8 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                 catch (e:Dynamic) 
                   name.pos.error('Invalid call to super');
                 
-              // name.pos.error(ctor);
               macro @:pos(name.pos) super($a{getArgs(shouldFlatten(ctor.type, name))});
-              // throw 'whaaa?';
+
             case macro $i{cls}, macro $_.$cls if (cls.charAt(0).toLowerCase() != cls.charAt(0)):
               
               switch name.value.definedType() {
@@ -172,7 +171,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                             ctor = cl.constructor;
                           }
                           if (ctor == null)
-                            throw 'Class ${name.value} has no constructor';
+                            name.pos.error('Class ${name.value} has no constructor');
                           ctor.get().type;
                         case TAbstract(_.get().impl.get() => cl, _):
                           var ret = null;
@@ -182,7 +181,7 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                               break;
                             }
                           if (ret == null)
-                            throw 'Abstract ${name.value} has no constructor';
+                            name.pos.error('Abstract ${name.value} has no constructor');
                           ret.type;
                         default:
                           throw '${name.value} is neither class nor abstract';
