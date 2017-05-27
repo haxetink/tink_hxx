@@ -166,9 +166,14 @@ abstract Generator(GeneratorObject) from GeneratorObject to GeneratorObject {
                     case None:
                       var ctor = switch t {
                         case TInst(_.get() => cl, _):
-                          if (cl.constructor == null)
+                          var ctor = cl.constructor;
+                          while(ctor == null && cl.superClass != null) {
+                            cl = cl.superClass.t.get();
+                            ctor = cl.constructor;
+                          }
+                          if (ctor == null)
                             throw 'Class ${name.value} has no constructor';
-                          cl.constructor.get().type;
+                          ctor.get().type;
                         case TAbstract(_.get().impl.get() => cl, _):
                           var ret = null;
                           for (f in cl.statics.get()) 
