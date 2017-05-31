@@ -80,7 +80,7 @@ class Merge {
       var result:Array<{ field:String, expr:Expr }> = [],
           vars:Array<Var> = [];
       
-      function addField(owner, name:String, expr:Expr) {
+      function addField(owner, name:String, expr:Expr, ?eType:Type) {
         var fType = expected.get(name).type;
 
         function getDefault() return
@@ -90,14 +90,14 @@ class Merge {
               var ct = fType.toComplex();
 
               typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
-
+                var eType = if (eType == null) expr.typeof() else Success(eType);
                 var isFunction = 
-                  switch expr.typeof() {
+                  switch eType {
                     case Success(_.reduce() => TFun(_, _)): true;
                     case Success(TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, _)): true;
                     default: false;
                   }
-
+                  
                 return
                   switch fType.reduce() {
                     case TFun([_], _) if (!isFunction):
@@ -128,7 +128,7 @@ class Merge {
 
       function decompose(rest:Array<Expr>) {
         for (o in rest) {
-          var vName = '__' + vars.length;
+          var vName = '__v_' + vars.length;
           
           vars.push({
             type: null, name: vName, expr: o,
@@ -142,7 +142,7 @@ class Merge {
               case null:
               default:
                 var name = f.name;
-                addField(owner, name, macro @:pos(o.pos) $i{vName}.$name);
+                addField(owner, name, macro @:pos(o.pos) $i{vName}.$name, f.type);
             }
         }
         
@@ -158,7 +158,7 @@ class Merge {
         return [
           EVars(vars).at(),
           EObjectDecl(result).at(),
-        ].toBlock();          
+        ].toBlock();     
       }
 
       switch primary.expr {
