@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "A few simplifications.",
-	"version": "0.12.4",
+	"releasenote": "Adds more hooks. Various fixes.",
+	"version": "0.13.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
