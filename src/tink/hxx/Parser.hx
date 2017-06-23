@@ -163,7 +163,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   function parseString()
-    return expect('"') + withPos(upto('"').sure(), StringTools.urlDecode);
+    return expect('"') + withPos(upto('"').sure(), StringTools.htmlUnescape);
   
   function parseChildren(?closing:String):Array<Expr> {
     var ret = [];      
