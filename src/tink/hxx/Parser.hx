@@ -28,7 +28,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   var config:ParserConfig;
   var isVoid:String->Bool;
   
-  public function new(fileName, source, offset, config) {
+  function new(fileName, source, offset, config) {
     this.fileName = fileName;
     this.offset = offset;
     this.config = config;
@@ -184,10 +184,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
     function text(slice) {
       var text = withPos(slice, StringTools.htmlUnescape);
-      ret.push({
-        pos: text.pos,
-        value: CText(text) 
-      });
+      if (text.value.length > 0)
+        ret.push({
+          pos: text.pos,
+          value: CText(text) 
+        });
     }      
     
     while (pos < max) {  
@@ -377,25 +378,27 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }  
   
-  static public function parse(e:Expr, gen:Generator, ?config:ParserConfig) {
+  static public function parseRoot(e:Expr, ?config:ParserConfig) {
     if (config == null) 
       config = {
         defaultExtension: 'hxx',
         noControlStructures: false,
       }
-      
     var s = e.getString().sure();
     var pos = Context.getPosInfos(e.pos);
     var p = new Parser(pos.file, s, pos.min + 1, config);
     p.skipIgnored();
     return try {
-      NodeWalker.root(gen, p.parseChildren());
+      p.parseChildren();
     }
     catch (e:Case) 
       p.die('case outside of switch', p.pos - 4 ... p.pos)
     catch (e:Else)
-      p.die('else without if', p.pos - 4 ... p.pos);
+      p.die('else without if', p.pos - 4 ... p.pos); 
   }
+
+  static public function parse(e:Expr, gen:Generator, ?config:ParserConfig) 
+    return NodeWalker.root(gen, parseRoot(e, config));
 
 }
 
