@@ -29,10 +29,15 @@ class Merge {
           macro @:pos(pos) $i{name};
   }
   macro static public function complexAttribute(e:Expr) {
+    var t = Context.getExpectedType();
+    if (t == null) {
+      e.reject(switch lastError {//This is a sick hack. See the one place where the variable is set if you wish to find out more.
+        case null: 'this expression lead to an unexpected error';
+        case v: v;
+      });
+    }
     return
-      switch Context.getExpectedType().reduce() {
-        case null:
-          throw 'assert';
+      switch t.reduce() {
         case TFun([{ t: t }], _):
           
           var ct = t.toComplex();
@@ -63,9 +68,9 @@ class Merge {
       }
   }
   #if macro
+  static var lastError:Dynamic = null;
   static public function mergeObjects(primary:Expr, rest:Array<Expr>, options:MergeOptions) {
-
-    function typed(expr:Expr, fallback:Expr->Expr) 
+    function typed(expr:Expr, fallback:Expr->Dynamic->Expr) 
       return
         try {
           var e = Context.storeTypedExpr(Context.typeExpr(expr));
@@ -73,7 +78,7 @@ class Merge {
         }
         catch (e:Dynamic) {
           if (fallback == null) expr;
-          else fallback(expr);
+          else fallback(expr, e);
         }
     
     function combine(type:Type, expected:Lookup) {
@@ -88,9 +93,10 @@ class Merge {
             case macro tink.hxx.Merge.complexAttribute($_): expr;
             default:
               var ct = fType.toComplex();
-
-              typed(macro @:pos(expr.pos) ($expr : $ct), function (e) {
+              typed(macro @:pos(expr.pos) ($expr : $ct), function (e, error) {
+                lastError = error;//because we cannot catch some errors produced by `complexAttribute` within `expr.typeof()`, we store the error here and treat it in `complexAttribute` ... \o/
                 var eType = if (eType == null) expr.typeof() else Success(eType);
+                lastError = null;
                 var isFunction = 
                   switch eType {
                     case Success(_.reduce() => TFun(_, _)): true;
@@ -166,7 +172,7 @@ class Merge {
           var ct = type.toComplex();
           return typed(
             macro @:pos(rest[0].pos) (${rest[0]} : $ct),
-            function (_) return options.decomposeSingle(rest[0], type, decompose)
+            function (_, _) return options.decomposeSingle(rest[0], type, decompose)
           );
         case EObjectDecl(given):
           for (f in given)
