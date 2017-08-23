@@ -1,11 +1,12 @@
 package tink.hxx;
 
 import haxe.macro.Expr;
-import tink.hxx.Generator;
+import tink.hxx.Node;
 import tink.parse.Char.*;
 import tink.parse.ParserBase;
 import tink.parse.StringSlice;
 import haxe.macro.Context;
+import tink.hxx.Parser.ParserConfig;
 
 using StringTools;
 using haxe.io.Path;
@@ -22,15 +23,13 @@ typedef ParserConfig = {
 
 class Parser extends ParserBase<Position, haxe.macro.Error> { 
   
-  var gen:Generator;
   var fileName:String;
   var offset:Int;
   var config:ParserConfig;
   var isVoid:String->Bool;
   
-  public function new(fileName, source, offset, gen, config) {
+  public function new(fileName, source, offset, config) {
     this.fileName = fileName;
-    this.gen = gen;
     this.offset = offset;
     this.config = config;
     super(source);
@@ -121,7 +120,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return found;
   }
   
-  function parseChild() {
+  function parseChild() return located(function () {
     var name = withPos(ident(true).sure());
     
     var hasChildren = true;
@@ -158,24 +157,40 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       );
     }
     
-    return
-      gen.makeNode(name, attrs, if (hasChildren && !isVoid(name.value)) parseChildren(name.value) else []);
-  }
+    return CNode({
+      name: name, 
+      attributes: attrs, 
+      children: if (hasChildren && !isVoid(name.value)) parseChildren(name.value) else null
+    });
+  });
   
   function parseString()
     return expect('"') + withPos(upto('"').sure(), StringTools.htmlUnescape);
   
-  function parseChildren(?closing:String):Array<Expr> {
-    var ret = [];      
+  function parseChildren(?closing:String):Children {
+    var ret:Array<Child> = [],
+        start = pos;    
+
+    function result():Children return {
+      pos: makePos(start, pos),
+      value: ret,
+    }  
+
+    function expr(e:Expr)
+      ret.push({
+        pos: e.pos,
+        value: CExpr(e),
+      });    
+
+    function text(slice) {
+      var text = withPos(slice, StringTools.htmlUnescape);
+      ret.push({
+        pos: text.pos,
+        value: CText(text) 
+      });
+    }      
     
     while (pos < max) {  
-      
-      function text(slice) {
-        switch gen.string(withPos(slice, StringTools.htmlUnescape)) {
-          case Some(v): ret.push(v);
-          case None:
-        }
-      }
       
       switch first(["${", "$", "{", "<"], text) {
         case Success("<"):
@@ -194,28 +209,29 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
                   'found </$found> but expected </$closing>', 
                 found.start...found.end
               );
-            return ret;
+            return result();
           }
           else if (kwd('for')) {
-            var head = argExpr().sure() + expect('>');
-            ret.push(gen.flatten(head.pos, [macro for ($head) ${gen.flatten(head.pos, parseChildren('for'))}]));
+            ret.push(located(function () {
+              return CFor(argExpr().sure() + expect('>'), parseChildren('for'));
+            }));
           }
           else if (kwd('switch')) 
             ret.push(parseSwitch());
           else if (kwd('if')) 
             ret.push(parseIf());
           else if (kwd('else')) 
-            throw new Else(ret, false);
+            throw new Else(result(), false);
           else if (kwd('elseif')) 
-            throw new Else(ret, true);
+            throw new Else(result(), true);
           else if (kwd('case')) 
-            throw new Case(ret);
+            throw new Case(result());
           else 
             ret.push(parseChild());        
           
         case Success("$"):
           
-          ret.push(simpleIdent());
+          expr(simpleIdent());
           
         case Success(v):
           
@@ -241,13 +257,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             
             Context.registerModuleDependency(Context.getLocalModule(), name);
                 
-            var p = new Parser(name, content, 0, gen, config);
-            for (c in p.parseChildren())
+            var p = new Parser(name, content, 0, config);
+            for (c in p.parseChildren().value)
               ret.push(c);
             
           }
           else
-            ret.push(ballancedExpr('{', '}'));
+            expr(ballancedExpr('{', '}'));
             
         case Failure(e):
           this.skipIgnored();
@@ -260,10 +276,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     if (closing != null)
       die('unclosed <$closing>');
     
-    return ret;
-  }
+    return result();
+  };
   
-  function parseSwitch() {
+  function parseSwitch() return located(function () return {
     var target = 
       (switch [argExpr(), config.defaultSwitchTarget] {
         case [Success(v), _]: v;
@@ -271,55 +287,59 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         case [_, v]: v;
       }) + expect('>') + expect('<case');
     
-    var cases:Array<haxe.macro.Expr.Case> = [];
-    
+    var cases = [];
+    var ret = CSwitch(target, cases);
     var last = false;
     while (!last) {
       var arg = argExpr().sure();
       cases.push({
         values: [arg],
         guard: (if (allow('if')) argExpr().sure() else null) + expect('>'),
-        expr:
+        children:
           try {
             last = true;
-            gen.flatten(arg.pos, parseChildren('switch'));
+            parseChildren('switch');
           }
           catch (e:Case) {
             last = false;
-            gen.flatten(arg.pos, e.children);
+            e.children;
           }
       });
     }
-    return ESwitch(target, cases, null).at();
+    return ret;
+  });
+
+  function located<T>(f:Void->T):Located<T> {
+    //this is not unlike read
+    var start = pos;
+    var ret = f();
+    return {
+      value: ret,
+      pos: makePos(start, pos)
+    }
   }
+
+  function onlyChild(c:Child):Children
+    return { pos: c.pos, value: [c] };
   
-  function parseIf() {
+  function parseIf():Child {
     var start = pos;
     var cond = argExpr().sure() + expect('>');
     
-    function make(cons, alt) {
+    function make(cons, ?alt):Child {
       
-      var pos = makePos(start, pos);
-      
-      function posOf(a:Array<Expr>)
-        return switch a {
-          case []: pos;
-          default:
-            a[a.length - 1].pos;
-        }
-      
-      var cons = gen.flatten(posOf(cons), cons);
-      var alt = gen.flatten(posOf(alt), alt);
-      
-      return macro @:pos(cond.pos) if ($cond) $cons else $alt;
+      return {
+        pos: makePos(start, pos),
+        value: CIf(cond, cons, alt)
+      }
     }
     return 
       try {
-        make(parseChildren('if'), []);
+        make(parseChildren('if'));
       }
       catch (e:Else) {
         if (e.elseif || switch ident() { case Success(v): if (v == 'if') true else die('unexpected $v', v.start...v.end); default: false; } ) 
-          make(e.children, [parseIf()]);
+          make(e.children, onlyChild(parseIf()));
         else
           expect('>') + make(e.children, parseChildren('if'));
       }
@@ -366,21 +386,65 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       
     var s = e.getString().sure();
     var pos = Context.getPosInfos(e.pos);
-    var p = new Parser(pos.file, s, pos.min + 1, gen, config);
+    var p = new Parser(pos.file, s, pos.min + 1, config);
     p.skipIgnored();
     return try {
-      gen.root(p.parseChildren());
+      NodeWalker.root(gen, p.parseChildren());
     }
     catch (e:Case) 
       p.die('case outside of switch', p.pos - 4 ... p.pos)
     catch (e:Else)
       p.die('else without if', p.pos - 4 ... p.pos);
   }
+
+}
+
+private class NodeWalker {
+  
+  static public function root(gen:Generator, children:Children) {
+    var wrapped = new NodeWalker(gen);
+    return gen.root(wrapped.children(children));
+  }
+
+  var gen:Generator;
+  function new(gen)
+    this.gen = gen;
+
+  function child(c:Child):Option<Expr>
+    return switch c.value {
+      case CIf(cond, cons, alt): 
+        Some(macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${flatten(alt)});
+      case CSwitch(target, cases):
+        Some(ESwitch(target, [for (c in cases) {
+          values: c.values,
+          guard: c.guard,
+          expr: flatten(c.children),
+        }], null).at(c.pos));
+      case CFor(head, body):
+        Some(gen.flatten(c.pos, [macro @:pos(c.pos) for ($head) ${flatten(body)}]));
+      case CExpr(e): Some(e);
+      case CText(s): gen.string(s);
+      case CNode(n): Some(gen.makeNode(n.name, n.attributes, children(n.children)));
+    }
+
+  function flatten(c:Children) 
+    return 
+      if (c == null) gen.flatten((macro null).pos, null);
+      else gen.flatten(c.pos, children(c));
+
+  function children(c:Children):Array<Expr>
+    return
+      if (c == null) null;
+      else 
+        [for (c in c.value) switch child(c) {
+          case Some(e): e;
+          case None: continue;
+        }];
 }
 
 private class Branch {
   
-  public var children(default, null):Array<Expr>;
+  public var children(default, null):Children;
   
   public function new(children)
     this.children = children;
