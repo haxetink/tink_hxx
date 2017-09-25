@@ -19,6 +19,6 @@
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
-		"tink_macro": ""
+		"tink_anon": ""
 	}
 }

@@ -311,7 +311,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   });
 
   function located<T>(f:Void->T):Located<T> {
-    //this is not unlike read
+    //TODO: this is not unlike super.read
     var start = pos;
     var ret = f();
     return {
@@ -397,54 +397,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       p.die('else without if', p.pos - 4 ... p.pos); 
   }
 
-  static public function parse(e:Expr, gen:Generator, ?config:ParserConfig) 
-    return NodeWalker.root(gen, parseRoot(e, config));
-
 }
-
-private class NodeWalker {
-  
-  static public function root(gen:Generator, children:Children) {
-    var wrapped = new NodeWalker(gen);
-    return gen.root(wrapped.children(children));
-  }
-
-  var gen:Generator;
-  function new(gen)
-    this.gen = gen;
-
-  function child(c:Child):Option<Expr>
-    return switch c.value {
-      case CIf(cond, cons, alt): 
-        Some(macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${flatten(alt)});
-      case CSwitch(target, cases):
-        Some(ESwitch(target, [for (c in cases) {
-          values: c.values,
-          guard: c.guard,
-          expr: flatten(c.children),
-        }], null).at(c.pos));
-      case CFor(head, body):
-        Some(gen.flatten(c.pos, [macro @:pos(c.pos) for ($head) ${flatten(body)}]));
-      case CExpr(e): Some(e);
-      case CText(s): gen.string(s);
-      case CNode(n): Some(gen.makeNode(n.name, n.attributes, children(n.children)));
-    }
-
-  function flatten(c:Children) 
-    return 
-      if (c == null) gen.flatten((macro null).pos, null);
-      else gen.flatten(c.pos, children(c));
-
-  function children(c:Children):Array<Expr>
-    return
-      if (c == null) null;
-      else 
-        [for (c in c.value) switch child(c) {
-          case Some(e): e;
-          case None: continue;
-        }];
-}
-
 private class Branch {
   
   public var children(default, null):Children;
@@ -453,7 +406,7 @@ private class Branch {
     this.children = children;
     
   public function toString() 
-    return 'mispaced ${Type.getClassName(Type.getClass(this))}';
+    return 'misplaced ${Type.getClassName(Type.getClass(this))}';
 }
 
 private class Case extends Branch { 

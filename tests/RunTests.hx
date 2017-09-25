@@ -22,15 +22,15 @@ class RunTests extends TestCase {
     }
   }
   
-  function test() {
-    assertDeepEqual([tag('test', {})], dom('<test />'));
-    assertDeepEqual([tag('test', {})], dom('  <test />'));
-    assertDeepEqual([tag('test', {})], dom('<test />  '));
-    assertDeepEqual([tag('test', {})], dom('  <test />  '));
-    assertDeepEqual([tag('test', {})], dom('  <test/>  '));
-    assertDeepEqual([tag('test', {})], dom('  <test / >  '));
-    assertDeepEqual([tag('test', {})], dom('  <test></test>  '));
-    assertDeepEqual([tag('test', { }, [text('   ')])], dom('  <test>   </test>  '));
+  function testWhitespace() {
+    assertDeepEqual(tag('test', {}), dom('<test />'));
+    assertDeepEqual(tag('test', {}), dom('  <test />'));
+    assertDeepEqual(tag('test', {}), dom('<test />  '));
+    assertDeepEqual(tag('test', {}), dom('  <test />  '));
+    assertDeepEqual(tag('test', {}), dom('  <test/>  '));
+    assertDeepEqual(tag('test', {}), dom('  <test / >  '));
+    assertDeepEqual(tag('test', {}), dom('  <test></test>  '));
+    assertDeepEqual(tag('test', { }, [text('   ')]), dom('  <test>   </test>  '));
     
     var numbers = [for (i in 0...100) i];
     
@@ -49,14 +49,14 @@ class RunTests extends TestCase {
     
     dom('{import "test"}');
     
-    assertDeepEqual([tag('test', {}, [text(' test '), foo, text('test'), foo, text(' ')])], dom('  <test> test {foo}test${foo} </test>  '));
-    assertDeepEqual([tag('test', {}, [text('  '), text(' ')])], dom('  <test>  <!-- ignore this please --> </test>  '));
-    assertDeepEqual([tag('foo', { } ), text(' '), tag('bar', { } ), tag('baz', { } )], dom('<foo /> <bar></bar><baz />'));
+    assertDeepEqual(tag('test', {}, [text(' test '), foo, text('test'), foo, text(' ')]), dom('  <test> test {foo}test${foo} </test>  '));
+    assertDeepEqual(tag('test', {}, [text('  '), text(' ')]), dom('  <test>  <!-- ignore this please --> </test>  '));
+    // assertDeepEqual([tag('foo', { } ), text(' '), tag('bar', { } ), tag('baz', { } )], dom('<wrap><foo /> <bar></bar><baz /></wrap>'));
     
-    assertDeepEqual([tag('test', {}, ['foo'])], dom('<test>foo</test>'));    
-    assertDeepEqual([tag('test', {}, [' foo'])], dom('<test> foo</test>'));    
-    assertDeepEqual([tag('test', {}, ['foo  '])], dom('<test>foo  </test>'));   
-    assertEquals('<div foo.bar="123"></div>', dom('<div foo.bar="123" />')[0].format());
+    assertDeepEqual(tag('test', {}, ['foo']), dom('<test>foo</test>'));    
+    assertDeepEqual(tag('test', {}, [' foo']), dom('<test> foo</test>'));    
+    assertDeepEqual(tag('test', {}, ['foo  ']), dom('<test>foo  </test>'));   
+    assertEquals('<div foo.bar="123"></div>', dom('<div foo.bar="123" />').format());
   }
 
   function testSplat() {
@@ -64,7 +64,7 @@ class RunTests extends TestCase {
     var o2 = { foo: 'o2', baz: 'o2' };
     assertEquals('<div bar="321" baz="o2" foo="o1"></div>', dom('
       <div bar="321" {...o1} {...o2} />
-    ')[0].format());
+    ').format());
   }
   
   function testControl() {
@@ -83,7 +83,7 @@ class RunTests extends TestCase {
           </if>
         </for>
       </div>
-    ')[0].format());
+    ').format());
     assertEquals('<div><zero></zero><one></one><two></two><other></other><other></other></div>', dom('
       <div>
         <for {i in 0...5}>
@@ -99,7 +99,7 @@ class RunTests extends TestCase {
           </switch>
         </for>
       </div>
-    ')[0].format());
+    ').format());
   }
   
   static function main() {

@@ -51,39 +51,52 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
     return text(Std.string(i));
   
   macro static public function dom(e) 
-    return macro @:pos(e.pos) (
-      ${tink.hxx.Parser.parse(
-        e, 
-        function (name, attr, children:haxe.ds.Option<haxe.macro.Expr>) 
-          return
-            if (name.value == '...') {
-              
-              var children = switch children {
-                case Some(v): v;
-                default: macro [];
-              }
-              
-              macro @:pos(name.pos) Dummy.ofArray($children);
+    return 
+      new DummyGen().root(
+        tink.hxx.Parser.parseRoot(
+          e, 
+          {
+            defaultExtension: 'hxx',
+            isVoid: function (s) return switch s {
+              case 'img': true;
+              default: false;
             }
-            else
-              macro @:pos(name.pos) Dummy.tag(
-                $v{name.value},
-                ${tink.hxx.Generator.applySpreads(attr, macro tink.hxx.Merge.objects)},
-                ${switch children {
-                  case Some(v): v;
-                  default: macro null;
-                }} 
-              ),
-        {
-          defaultExtension: 'hxx',
-          isVoid: function (s) return switch s {
-            case 'img': true;
-            default: false;
           }
-        }
-      )}
-        :
-      Array<Dummy>
-    );
-  
+        )
+      ); 
 }
+
+#if macro
+class DummyGen extends tink.hxx.Generator {
+  override function node(n:tink.hxx.Node, pos:haxe.macro.Expr.Position) {
+
+    var attr:Array<tink.anon.Macro.Part> = [],
+        splats = [];
+
+    for (a in n.attributes)
+      switch a {
+        case Splat(e):
+          splats.push(e);
+        case Empty(name):
+          attr.push({
+            name: name.value,
+            pos: name.pos,
+            getValue: function (_) return macro @:pos(name.pos) true,
+          });
+        case Regular(name, value):
+          attr.push({
+            name: name.value,
+            pos: name.pos,
+            getValue: function (_) return value,
+          });        
+      }
+    
+    var a = tink.anon.Macro.mergeParts(attr, splats, pos, macro : Dynamic<Dummy.AttrVal>);
+    var children = switch flatten(n.children) {
+      case null | macro []: macro null;
+      case e: e;
+    }
+    return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
+  }
+}
+#end
