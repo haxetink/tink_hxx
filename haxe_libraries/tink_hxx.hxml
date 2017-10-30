@@ -1,0 +1,6 @@
+-D tink_hxx=0.13.1
+-cp src
+
+-lib tink_parse
+-lib tink_macro
+-lib tink_anon

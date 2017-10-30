@@ -1,4 +1,5 @@
 -lib tink_stringly
 -lib deep_equal
+-lib hx3compat
 -cp tests
 -main RunTests
