@@ -249,6 +249,10 @@ class Generator {
 
     function anon(anon:AnonType, t, lift:Bool, children:Type) {
       var fields = [for (f in anon.fields) f.name => f];
+      if (fields.exists('children') && children == null) {
+        children = fields['children'].type;
+        fields.remove('children');
+      }
       return 
         if (children == null)
           JustAttributes(fields, t, lift);
@@ -320,8 +324,7 @@ class Generator {
     return switch c.value {
       case CExpr(e): e;
       case CText(s): s.value.toExpr(s.pos);
-      // case CNode(n): node.bind(n, c.pos).bounce(c.pos);
-      case CNode(n): node(n, c.pos);
+      case CNode(n): node.bind(n, c.pos).bounce(c.pos);
       case CSwitch(target, cases): 
         ESwitch(target, [for (c in cases) {
           values: c.values,
