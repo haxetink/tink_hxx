@@ -133,7 +133,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         break;
       }
       
-      if (allow('{')) {
+      if (allow("${") || allow('{')) {
         var pos = pos;
         
         if (allow('...')) {
