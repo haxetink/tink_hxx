@@ -8,6 +8,7 @@ import haxe.macro.Type;
 import tink.anon.Macro.*;
 import tink.anon.Macro.Part;
 
+using haxe.macro.Tools;
 using tink.CoreApi;
 using tink.MacroApi;
 using StringTools;
@@ -160,7 +161,10 @@ class Generator {
       }
       
       for (a in n.attributes) switch a {
-        case Regular(name, value): set(name, value);
+        case Regular(name, value): set(name, switch value.getString() {
+          case Success(s): s.formatString(value.pos);
+          default: value;
+        });
         case Empty(name): set(name, macro @:pos(name.pos) true);
         default: continue;
       }

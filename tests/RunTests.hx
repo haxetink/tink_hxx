@@ -62,7 +62,8 @@ class RunTests extends TestCase {
   function testSplat() {
     var o1 = { foo: 'o1', bar: '123' };
     var o2 = { foo: 'o2', baz: 'o2' };
-    assertEquals('<div bar="321" baz="o2" foo="o1"></div>', dom('
+    var one = '1';
+    assertEquals('<div bar="32$one" baz="o2" foo="o1"></div>', dom('
       <div bar="321" {...o1} ${...o2} />
     ').format());
   }
