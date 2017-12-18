@@ -25,7 +25,7 @@ class Generator {
       if (c == null) null;
       else block(c.pos, [for (c in normalize(c.value)) child(c, flatten)]);
 
-  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, children:Option<Expr>, fields:Map<String, ClassField>) {
+  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>) {
     switch custom {
       case []:
       default:
@@ -34,6 +34,16 @@ class Generator {
           makeAttribute({ value: 'attributes', pos: pos }, EObjectDecl([for (a in custom) { field: a.name.value, expr: a.value }]).at(pos)) 
         ]);
     }
+
+    if (childrenAreAttribute)
+      switch children {
+        case Some(e):
+          attrs = attrs.concat([
+            makeAttribute({ value: 'children', pos: e.pos }, e)
+          ]);
+          children = None;
+        default:
+      }
 
     return {
       attrs: attrs,
@@ -107,10 +117,11 @@ class Generator {
     return invoke(name, isClass, [arg], pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
-    var lift = false,
-        children = null,
+    
+    var children = null,
         fields = null,
-        fieldsType = null;
+        fieldsType = null,
+        childrenAreAttribute = false;
 
     switch tag.args {
       case PlainArg(t):
@@ -123,18 +134,17 @@ class Generator {
             n.name.pos.error('<${n.name.value}/> must have exactly one spread and no other attributes');
         }
         
-      case JustAttributes(a, t, l):
+      case JustAttributes(a, t):
 
-        lift = l;
         fieldsType = t;
         fields = a;
 
-      case Full(a, t, l, c):
+      case Full(a, t, c, caa):
 
-        lift = l;
         fields = a;
         fieldsType = t;
         children = c;      
+        childrenAreAttribute = caa;
     }
     
     var splats = [
@@ -225,7 +235,7 @@ class Generator {
       childList = null;
     }
 
-    var mangled = mangle(attributes, custom, switch childList {
+    var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
       case null: None;
       case v: Some(flatten(v));
     }, fields);
@@ -243,9 +253,6 @@ class Generator {
         attrType
       );
 
-    if (lift)
-      obj = macro @:pos(n.name.pos) tink.state.Observable.auto(function ():$attrType return $obj);
-
     return instantiate(n.name, tag.isClass, key, obj, mangled.children);
   }
 
@@ -253,28 +260,26 @@ class Generator {
 
     function anon(anon:AnonType, t, lift:Bool, children:Type) {
       var fields = [for (f in anon.fields) f.name => f];
-      if (fields.exists('children') && children == null) {
-        children = fields['children'].type;
-        fields.remove('children');
+      
+      var childrenAreAttribute = fields.exists('children');
+      
+      if (childrenAreAttribute) {
+        if (children == null) 
+          children = fields['children'].type;
+        else 
+          name.pos.error('tag requires child list and children attribute');
       }
       return 
         if (children == null)
-          JustAttributes(fields, t, lift);
+          JustAttributes(fields, t);
         else
-          Full(fields, t, lift, children);
+          Full(fields, t, children, childrenAreAttribute);
     }
 
     function mk(t:Type, ?children:Type, isClass:Bool)
       return {
         isClass: isClass,
         args: switch t.reduce() {
-          case TAbstract(_.get() => { pack: ['tink', 'state'], name: 'Observable'}, [t]):
-            switch t.reduce() {
-              case TAnonymous(a):
-                anon(a.get(), t, true, children);
-              default:
-                throw 'assert';
-            }
           case TAnonymous(a):
             anon(a.get(), t, false, children);
           default:
@@ -283,31 +288,7 @@ class Generator {
       }
 
     return 
-      if (name.value == 'super' && false)
-        switch Context.getLocalClass() {
-          case null:
-            name.pos.error('not a class');
-          case cl:
-            switch cl.get().superClass {
-              case null: 
-                name.pos.error('no super class');
-              case _.t.get().constructor => c:
-                switch c {
-                  case null: 
-                    name.pos.error('super class has no constructor');
-                  case r:
-                    switch r.get().type.reduce() {
-                      case TFun([{ t: a }, { t: c }], _): 
-                        mk(a, c, false);
-                      case TFun([{ t: a }], _): 
-                        mk(a, false);              
-                      case v: 
-                        name.pos.error('super class constructor has HXX-incompatible type $v');              
-                    }
-                }
-            }
-        }      
-      else switch name.value.resolve(name.pos).typeof().sure() {
+      switch name.value.resolve(name.pos).typeof().sure() {
         case TFun([{ t: a }, { t: c }], _): 
           mk(a, c, false);
         case TFun([{ t: a }], _): 
@@ -405,8 +386,8 @@ class Generator {
 
 enum TagArgs {
   PlainArg(t:Type);
-  JustAttributes(fields:Map<String, ClassField>, fieldsType:Type, lift:Bool);
-  Full(fields:Map<String, ClassField>, fieldsType:Type, lift:Bool, children:Type);
+  JustAttributes(fields:Map<String, ClassField>, fieldsType:Type);
+  Full(fields:Map<String, ClassField>, fieldsType:Type, children:Type, childrenAreAttribute:Bool);
 }
 
 typedef Tag = {
