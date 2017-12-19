@@ -62,16 +62,6 @@ class Generator {
       getValue: function (expected:Option<Type>) 
         return 
           switch expected {
-            case Some(_.getID() => 'tink.state.Observable'):
-              (function () return
-                if ((macro {
-                  function fake<T>(o:tink.state.Observable.ObservableObject<T>) {}
-                  fake($value);
-                }).typeof().isSuccess())
-                  value;
-                else 
-                  macro @:pos(value.pos) tink.state.Observable.auto(function () return $value)
-              ).bounce();
             case Some(_.reduce() => t):
               function liftAsFunction(wrapped:Expr) {
                 var ct = t.toComplex();
@@ -190,45 +180,8 @@ class Generator {
             attributes.push({
               pos: n.name.pos,
               name: n.name.value,
-              getValue: function (t) return switch t {
-                case Some(TFun(requiredArgs, _)):
-                  var declaredArgs = [for (a in n.attributes) switch a {
-                    case Splat(e): 
-                      e.reject(
-                        if (e.getIdent().isSuccess())
-                          'Use empty attribute instead of spread operator on ident to define argument name'
-                        else
-                          'Invalid spread on property ${n.name.value}:$t'
-                      );
-                    case Empty(name):
-                      name;
-                    case Regular(name, _):
-                      name.pos.error('Invalid attribute on complex property');
-                  }];
-                  var body = flatten.bind(n.children).bounce();
-                  switch [requiredArgs.length, declaredArgs.length] {
-                    case [1, 0]:
-                      var ct = requiredArgs[0].t.toComplex();
-                      macro function (__data__:$ct) {
-                        tink.Anon.splat(__data__);
-                        return $body;
-                      }
-                    case [l, l2] if (l == l2):
-                      body.func([for (i in 0...l) { 
-                        name: declaredArgs[i].value, 
-                        type: requiredArgs[0].t.toComplex(),
-                      }]).asExpr();
-                      //throw 'not implemented';
-                    case [l1, l2]:
-                      if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
-                      else n.name.pos.error('not enough arguments');
-                  }
-                  
-                default: 
-                  flatten(n.children);
-              },
+              getValue: complexAttribute(n),
             });
-            
           default: 
             c.pos.error('Only named tags allowed here');
         }
@@ -237,7 +190,10 @@ class Generator {
 
     var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
       case null: None;
-      case v: Some(flatten(v));
+      case v: 
+        var ct = children.toComplex();
+        var c = flatten(v);
+        Some(macro @:pos(c.pos) ($c : $ct));
     }, fields);
 
     var attrType = fieldsType.toComplex();
@@ -254,6 +210,46 @@ class Generator {
       );
 
     return instantiate(n.name, tag.isClass, key, obj, mangled.children);
+  }
+
+  function complexAttribute(n:Node) {
+    return function (t:Option<Type>):Expr return switch t {
+      case Some(TFun(requiredArgs, _)):
+        var declaredArgs = [for (a in n.attributes) switch a {
+          case Splat(e): 
+            e.reject(
+              if (e.getIdent().isSuccess())
+                'Use empty attribute instead of spread operator on ident to define argument name'
+              else
+                'Invalid spread on property ${n.name.value}:$t'
+            );
+          case Empty(name):
+            name;
+          case Regular(name, _):
+            name.pos.error('Invalid attribute on complex property');
+        }];
+        var body = flatten.bind(n.children).bounce();
+        switch [requiredArgs.length, declaredArgs.length] {
+          case [1, 0]:
+            var ct = requiredArgs[0].t.toComplex();
+            macro @:pos(n.name.pos) function (__data__:$ct) {
+              tink.Anon.splat(__data__);
+              return $body;
+            }
+          case [l, l2] if (l == l2):
+            body.func([for (i in 0...l) { 
+              name: declaredArgs[i].value, 
+              type: requiredArgs[0].t.toComplex(),
+            }]).asExpr();
+            //throw 'not implemented';
+          case [l1, l2]:
+            if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
+            else n.name.pos.error('not enough arguments');
+        }
+        
+      default: 
+        flatten(n.children);
+    };    
   }
 
   function getTag(name:StringAt) {
