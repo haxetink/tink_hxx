@@ -9,6 +9,7 @@ enum ChildKind {
   CNode(node:Node);
   CText(text:StringAt);
   CExpr(e:Expr);
+  CSplat(e:Expr);
 }
 
 typedef Child = Located<ChildKind>;

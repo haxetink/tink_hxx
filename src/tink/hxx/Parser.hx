@@ -263,6 +263,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
               ret.push(c);
             
           }
+          else if (allow('...')) {
+            var e = ballancedExpr('{', '}');
+            ret.push({
+              pos: e.pos,
+              value: CSplat(e),
+            });    
+          }
           else
             expr(ballancedExpr('{', '}'));
             
@@ -284,7 +291,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var target = 
       (switch [argExpr(), config.defaultSwitchTarget] {
         case [Success(v), _]: v;
-        case [Failure(v), null]: throw v;
+        case [Failure(v), null]: macro @:pos(makePos(pos)) __data__;
         case [_, v]: v;
       }) + expect('>') + expect('<case');
     

@@ -14,16 +14,16 @@ using tink.MacroApi;
 using StringTools;
 
 class Generator {
-  
+  static inline var OUT = '__r';
   public function new() {}
 
-  function block(pos:Position, statements:Array<Expr>)
-    return statements.toArray(pos);
+  function yield(e:Expr) 
+    return macro @:pos(e.pos) $i{OUT}.push($e);
 
   function flatten(c:Children) 
     return 
       if (c == null) null;
-      else block(c.pos, [for (c in normalize(c.value)) child(c, flatten)]);
+      else [for (c in normalize(c.value)) child(c, flatten)].toBlock(c.pos);
 
   function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>) {
     switch custom {
@@ -44,7 +44,6 @@ class Generator {
           children = None;
         default:
       }
-
     return {
       attrs: attrs,
       children: children, 
@@ -191,9 +190,7 @@ class Generator {
     var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
       case null: None;
       case v: 
-        var ct = children.toComplex();
-        var c = flatten(v);
-        Some(macro @:pos(c.pos) ($c : $ct));
+        Some(makeChildren(v, children.toComplex()));
     }, fields);
 
     var attrType = fieldsType.toComplex();
@@ -214,7 +211,7 @@ class Generator {
 
   function complexAttribute(n:Node) {
     return function (t:Option<Type>):Expr return switch t {
-      case Some(TFun(requiredArgs, _)):
+      case Some(TFun(requiredArgs, ret)):
         var declaredArgs = [for (a in n.attributes) switch a {
           case Splat(e): 
             e.reject(
@@ -228,7 +225,7 @@ class Generator {
           case Regular(name, _):
             name.pos.error('Invalid attribute on complex property');
         }];
-        var body = flatten.bind(n.children).bounce();
+        var body = makeChildren.bind(n.children, ret.toComplex()).bounce();
         switch [requiredArgs.length, declaredArgs.length] {
           case [1, 0]:
             var ct = requiredArgs[0].t.toComplex();
@@ -248,7 +245,10 @@ class Generator {
         }
         
       default: 
-        flatten(n.children);
+        makeChildren(n.children, switch t {
+          case Some(t): t.toComplex();
+          default: n.name.pos.makeBlankType();
+        });
     };    
   }
 
@@ -301,11 +301,34 @@ class Generator {
       }    
   }
 
+  function makeChildren(c:Children, ct:ComplexType)
+    return
+      macro @:pos(c.pos) {
+        var $OUT = [];
+        ($i{OUT} : $ct);
+        ${flatten(c)};
+        $i{OUT};
+      }
+
   function child(c:Child, flatten:Children->Expr):Expr
     return switch c.value {
-      case CExpr(e): e;
-      case CText(s): s.value.toExpr(s.pos);
-      case CNode(n): node.bind(n, c.pos).bounce(c.pos);
+      case CExpr(e): yield(e);
+      case CSplat(e): 
+        child({ 
+          value: CFor(
+            macro @:pos(e.pos) _0 in $e, 
+            {
+              value: [{
+                value: CExpr(macro @:pos(e.pos) _0),
+                pos: e.pos,
+              }],
+              pos: e.pos,
+            }
+          ), 
+          pos: e.pos 
+        }, flatten);
+      case CText(s): yield(s.value.toExpr(s.pos));
+      case CNode(n): yield(node.bind(n, c.pos).bounce(c.pos));
       case CSwitch(target, cases): 
         ESwitch(target, [for (c in cases) {
           values: c.values,
@@ -315,10 +338,7 @@ class Generator {
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
       case CFor(head, body): 
-        flatten({ 
-          pos: c.pos, 
-          value: [{ pos: c.pos, value: CExpr(macro @:pos(c.pos) for ($head) ${flatten(body)})}] 
-        });
+        macro @:pos(c.pos) for ($head) ${flatten(body)};
     }
 
   function emptyElse()
@@ -374,7 +394,11 @@ class Generator {
   public function root(root:Children):Expr
     return switch root.value {
       case []: root.pos.error('Empty HXX');
-      case [v]: child(v, this.root);
+      case [v]: macro @:pos(root.pos) {
+        var $OUT = [];
+        ${child(v, this.root)};
+        $i{OUT}[0];
+      }
       case v: v[1].pos.error('Only one element allowed here');
     }
 
