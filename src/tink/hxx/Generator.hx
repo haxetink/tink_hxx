@@ -23,7 +23,14 @@ class Generator {
   function flatten(c:Children) 
     return 
       if (c == null) null;
-      else [for (c in normalize(c.value)) child(c, flatten)].toBlock(c.pos);
+      else switch normalize(c.value) {
+        case []: noChildren(c.pos);
+        // case [v]:
+        case v: [for (c in v) child(c, flatten)].toBlock(c.pos);
+      }
+
+  function noChildren(pos)
+    return macro @:pos(pos) null;
 
   function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>) {
     switch custom {

@@ -92,10 +92,11 @@ class DummyGen extends tink.hxx.Generator {
       }
     
     var a = tink.anon.Macro.mergeParts(attr, splats, pos, macro : Dynamic<Dummy.AttrVal>);
-    var children = switch flatten(n.children) {
-      case null | macro []: macro null;
-      case e: e;
-    }
+    var children = 
+      switch n.children {
+        case null | { value: null | [] }: macro null;
+        case v: makeChildren(v, macro : Dummy);
+      }
     return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
   }
 }
