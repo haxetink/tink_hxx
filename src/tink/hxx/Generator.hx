@@ -15,7 +15,12 @@ using StringTools;
 
 class Generator {
   static inline var OUT = '__r';
-  public function new() {}
+  public var resolvers:Array<StringAt->StringAt>;
+  public function new(?resolvers) 
+    this.resolvers = switch resolvers {
+      case null: [];
+      case v: v;
+    }
 
   function yield(e:Expr) 
     return macro @:pos(e.pos) $i{OUT}.push($e);
@@ -122,12 +127,12 @@ class Generator {
     switch tag.args {
       case PlainArg(t):
         if (n.children != null) 
-          n.name.pos.error('children not allowed on <${n.name.value}/>');
+          tag.name.pos.error('children not allowed on <${tag.name.value}/>');
         switch n.attributes {
           case [Splat(e)]:
-            return plain(n.name, tag.isClass, e, pos);
+            return plain(tag.name, tag.isClass, e, pos);
           default: 
-            n.name.pos.error('<${n.name.value}/> must have exactly one spread and no other attributes');
+            tag.name.pos.error('<${tag.name.value}/> must have exactly one spread and no other attributes');
         }
         
       case JustAttributes(a, t):
@@ -184,8 +189,8 @@ class Generator {
           case CText(_.value.trim() => ''):
           case CNode(n):
             attributes.push({
-              pos: n.name.pos,
-              name: n.name.value,
+              pos: tag.name.pos,
+              name: tag.name.value,
               getValue: complexAttribute(n),
             });
           default: 
@@ -213,7 +218,7 @@ class Generator {
         attrType
       );
 
-    return instantiate(n.name, tag.isClass, key, obj, mangled.children);
+    return instantiate(tag.name, tag.isClass, key, obj, mangled.children);
   }
 
   function complexAttribute(n:Node) {
@@ -259,7 +264,7 @@ class Generator {
     };    
   }
 
-  function getTag(name:StringAt) {
+  function getTag(name:StringAt):Tag {
 
     function anon(anon:AnonType, t, lift:Bool, children:Type) {
       var fields = [for (f in anon.fields) f.name => f];
@@ -279,8 +284,9 @@ class Generator {
           Full(fields, t, children, childrenAreAttribute);
     }
 
-    function mk(t:Type, ?children:Type, isClass:Bool)
+    function mk(t:Type, ?children:Type, isClass:Bool, name):Tag
       return {
+        name: name,
         isClass: isClass,
         args: switch t.reduce() {
           case TAnonymous(a):
@@ -290,23 +296,42 @@ class Generator {
         }
       }
 
-    return 
-      switch name.value.resolve(name.pos).typeof().sure() {
-        case TFun([{ t: a }, { t: c }], _): 
-          mk(a, c, false);
-        case TFun([{ t: a }], _): 
-          mk(a, false);              
-        case v: 
-          switch '${name.value}.new'.resolve(name.pos).typeof() {
-            case Success(TFun([{ t: a }, { t: c }], _)):
-              mk(a, c, true);
-            case Success(TFun([{ t: a }], _)):
-              mk(a, true);
+    function makeFrom(name:StringAt, type:Type)
+      return 
+        switch type {
+          case TFun([{ t: a }, { t: c }], _): 
+            return mk(a, c, false, name);
+          case TFun([{ t: a }], _): 
+            return mk(a, false, name);              
+          case v: 
+            return switch '${name.value}.new'.resolve(name.pos).typeof() {
+              case Success(TFun([{ t: a }, { t: c }], _)):
+                mk(a, c, true, name);
+              case Success(TFun([{ t: a }], _)):
+                mk(a, true, name);
+              default:
+                name.pos.error('${name.value} has type $v which is unsuitable for HXX');
+            }
+        }
+
+    switch typeof(name) {
+      case Success(t): 
+        return makeFrom(name, t);
+      case Failure(e):
+        for (r in resolvers) {
+          var name = r(name);
+          switch typeof(name) {
+            case Success(t):
+              return makeFrom(name, t);
             default:
-              name.pos.error('${name.value} has type $v which is unsuitable for HXX');
           }
-      }    
+        }
+        return e.throwSelf();
+    }
   }
+
+  function typeof(name:StringAt)
+    return name.value.resolve(name.pos).typeof();
 
   function makeChildren(c:Children, ct:ComplexType)
     return
@@ -420,5 +445,6 @@ enum TagArgs {
 typedef Tag = {
   var isClass(default, never):Bool;
   var args(default, never):TagArgs;
+  var name(default, never):StringAt;
 }
 #end
