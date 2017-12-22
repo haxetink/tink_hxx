@@ -118,7 +118,6 @@ class Generator {
     return invoke(name, isClass, [arg], pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
-    
     var children = null,
         fields = null,
         fieldsType = null,
@@ -189,8 +188,8 @@ class Generator {
           case CText(_.value.trim() => ''):
           case CNode(n):
             attributes.push({
-              pos: tag.name.pos,
-              name: tag.name.value,
+              pos: n.name.pos,
+              name: n.name.value,
               getValue: complexAttribute(n),
             });
           default: 
