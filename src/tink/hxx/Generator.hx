@@ -16,6 +16,7 @@ using StringTools;
 class Generator {
   static inline var OUT = '__r';
   public var resolvers:Array<StringAt->StringAt>;
+
   public function new(?resolvers) 
     this.resolvers = switch resolvers {
       case null: [];
@@ -76,19 +77,17 @@ class Generator {
             case Some(_.reduce() => t):
               function liftAsFunction(wrapped:Expr) {
                 var ct = t.toComplex();
-                return (
-                  function () return
-                    if (!value.is(ct) && wrapped.is(ct)) wrapped
-                    else value
-                ).bounce();
+                return 
+                  if (!value.is(ct) && wrapped.is(ct)) wrapped
+                  else value;
               }            
               switch t {
                 case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [_]):
-                  liftAsFunction(macro function (event) $value);
+                  liftAsFunction.bind(macro @:pos(value.pos) function (event) $value).bounce();
                 case TFun([_], _.getID() => 'Void'):
-                  liftAsFunction(macro function (event) $value);
+                  liftAsFunction.bind(macro @:pos(value.pos) function (event) $value).bounce();
                 case TFun([], _.getID() => 'Void'):
-                  liftAsFunction(macro function () $value);
+                  liftAsFunction(macro @:pos(value.pos) function () $value);
                 default: value;
               }
             default: 
@@ -236,7 +235,7 @@ class Generator {
           case Regular(name, _):
             name.pos.error('Invalid attribute on complex property');
         }];
-        var body = makeChildren.bind(n.children, ret.toComplex()).bounce();
+        var body = makeChildren(n.children, ret.toComplex());
         switch [requiredArgs.length, declaredArgs.length] {
           case [1, 0]:
             var ct = requiredArgs[0].t.toComplex();
@@ -249,7 +248,6 @@ class Generator {
               name: declaredArgs[i].value, 
               type: requiredArgs[0].t.toComplex(),
             }]).asExpr();
-            //throw 'not implemented';
           case [l1, l2]:
             if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
             else n.name.pos.error('not enough arguments');
@@ -297,7 +295,7 @@ class Generator {
 
     function makeFrom(name:StringAt, type:Type)
       return 
-        switch type {
+        switch type.reduce() {
           case TFun([{ t: a }, { t: c }], _): 
             return mk(a, c, false, name);
           case TFun([{ t: a }], _): 
@@ -309,17 +307,17 @@ class Generator {
               case Success(TFun([{ t: a }], _)):
                 mk(a, true, name);
               default:
-                name.pos.error('${name.value} has type $v which is unsuitable for HXX');
+                name.pos.error('${name.value} has type $v which is unsuitable for HXX ${Context.defined("display")}');
             }
         }
 
-    switch typeof(name) {
+    switch lookup(name) {
       case Success(t): 
         return makeFrom(name, t);
       case Failure(e):
         for (r in resolvers) {
           var name = r(name);
-          switch typeof(name) {
+          switch lookup(name) {
             case Success(t):
               return makeFrom(name, t);
             default:
@@ -329,8 +327,11 @@ class Generator {
     }
   }
 
-  function typeof(name:StringAt)
-    return name.value.resolve(name.pos).typeof();
+  function lookup(name:StringAt)
+    return switch name.value.resolve(name.pos).typeof() {
+      case Success(TMono(_.get() => null)) if (Context.defined('display')): Failure(new Error('Unknown ${name.value}', name.pos));
+      case v: v;
+    }
 
   function makeChildren(c:Children, ct:ComplexType)
     return
@@ -359,7 +360,7 @@ class Generator {
           pos: e.pos 
         }, flatten);
       case CText(s): yield(s.value.toExpr(s.pos));
-      case CNode(n): yield(node.bind(n, c.pos).bounce(c.pos));
+      case CNode(n): yield(node(n, c.pos));
       case CSwitch(target, cases): 
         ESwitch(target, [for (c in cases) {
           values: c.values,
@@ -369,7 +370,21 @@ class Generator {
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
       case CFor(head, body): 
-        macro @:pos(c.pos) for ($head) ${flatten(body)};
+        macro @:pos(c.pos) for ($head) ${
+          flatten.bind(body).inSubScope(switch head {
+            case macro $i{name} in $target: 
+              var type = (macro @:pos(head.pos) (function () {
+                for ($head) return $i{name};
+                return cast null;
+              })()).typeof().sure().toComplex();
+              [{
+                name: name,
+                type: type,
+                expr: macro cast null,
+              }];
+            default: head.reject('invalid loop head');
+          })
+        };
     }
 
   function emptyElse()
@@ -422,16 +437,20 @@ class Generator {
     return s.substring(pos, max);
   }  
 
-  public function root(root:Children):Expr
-    return switch root.value {
-      case []: root.pos.error('Empty HXX');
-      case [v]: macro @:pos(root.pos) {
+  function onlyChild(c:Children) 
+    return switch c.value {
+      case []: c.pos.error('Empty HXX');
+      case [v]: macro @:pos(c.pos) {
         var $OUT = [];
-        ${child(v, this.root)};
+        ${child(v, this.onlyChild)};
         $i{OUT}[0];
       }
       case v: v[1].pos.error('Only one element allowed here');
-    }
+    }   
+
+  public function root(root:Children):Expr
+    return 
+      onlyChild.bind(root).scoped();
 
 }
 
