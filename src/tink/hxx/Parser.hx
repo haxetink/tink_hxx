@@ -149,6 +149,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           Regular(attr, switch argExpr() {
             case Success(e): e;
             default:
+              //TODO: allow numbers here
               var s = parseString();
               EConst(CString(s.value)).at(s.pos);
           })
