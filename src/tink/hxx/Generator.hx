@@ -390,7 +390,7 @@ class Generator {
   function emptyElse()
     return macro null;
 
-  function normalize(children:Array<Child>) 
+  static public function normalize(children:Array<Child>) 
     return switch children {
       case null: [];
       default:
