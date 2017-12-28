@@ -164,8 +164,15 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     });
   });
   
-  function parseString()
-    return expect('"') + withPos(upto('"').sure(), StringTools.htmlUnescape);
+  function parseString() {
+    var end = 
+      if (allow("'")) "'";
+      else {
+        expect('"');
+        '"';
+      }
+    return  withPos(upto(end).sure(), StringTools.htmlUnescape);
+  }
   
   function parseChildren(?closing:String):Children {
     var ret:Array<Child> = [],
@@ -275,8 +282,15 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             
         case Failure(e):
           this.skipIgnored();
-          if (this.pos < this.max)
-            e.pos.error(e.message);
+          if (closing == null) {
+            if (pos < max)//TODO: without this check, the whole source is added
+              text(source[pos...max]);
+            break;
+          }
+          else {
+            if (this.pos < this.max)
+              e.pos.error(e.message);
+          }
       }
             
     }
