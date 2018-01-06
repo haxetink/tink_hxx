@@ -365,7 +365,7 @@ class Generator {
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          expr: flatten(c.children)
+          expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
         }], null).at(c.pos);
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
