@@ -235,24 +235,36 @@ class Generator {
           case Regular(name, _):
             name.pos.error('Invalid attribute on complex property');
         }];
-        var body = makeChildren(n.children, ret.toComplex());
-        switch [requiredArgs.length, declaredArgs.length] {
-          case [1, 0]:
-            var ct = requiredArgs[0].t.toComplex();
-            macro @:pos(n.name.pos) function (__data__:$ct) {
-              tink.Anon.splat(__data__);
-              return $body;
-            }
-          case [l, l2] if (l == l2):
-            body.func([for (i in 0...l) { 
-              name: declaredArgs[i].value, 
-              type: requiredArgs[0].t.toComplex(),
-            }]).asExpr();
-          case [l1, l2]:
-            if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
-            else n.name.pos.error('not enough arguments');
-        }
-        
+
+        var splat = false;
+        var args:Array<FunctionArg> = 
+          switch [requiredArgs.length, declaredArgs.length] {
+            case [1, 0]:
+              splat = true;
+              [{
+                name: '__data__', 
+                type: requiredArgs[0].t.toComplex(),
+                opt: requiredArgs[0].opt
+              }];
+            case [l, l2] if (l == l2):
+              [for (i in 0...l) { 
+                name: declaredArgs[i].value, 
+                type: requiredArgs[i].t.toComplex(),
+                opt: requiredArgs[i].opt
+              }];
+            case [l1, l2]:
+              if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
+              else n.name.pos.error('not enough arguments');
+          }
+
+        var body =      
+          makeChildren.bind(n.children, ret.toComplex()).bounce();
+        if (splat)
+          body = macro @:pos(body.pos) {
+            tink.Anon.splat(__data__);
+            return $body;
+          }
+        body.func(args).asExpr();
       default: 
         makeChildren(n.children, switch t {
           case Some(t): t.toComplex();
