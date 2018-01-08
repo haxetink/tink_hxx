@@ -258,7 +258,7 @@ class Generator {
           }
 
         var body =      
-          makeChildren.bind(n.children, ret.toComplex()).bounce();
+          makeBody.bind(n.children, ret.toComplex()).bounce();
         if (splat)
           body = macro @:pos(body.pos) {
             tink.Anon.splat(__data__);
@@ -353,6 +353,9 @@ class Generator {
         ${flatten(c)};
         $i{OUT};
       }
+
+  function makeBody(c:Children, ct:ComplexType)
+    return makeChildren(c, ct);
 
   function child(c:Child, flatten:Children->Expr):Expr
     return switch c.value {
