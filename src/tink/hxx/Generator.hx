@@ -269,7 +269,7 @@ class Generator {
         makeChildren(n.children, switch t {
           case Some(t): t.toComplex();
           default: n.name.pos.makeBlankType();
-        }, true).log();
+        }, true);
     };    
   }
 
@@ -476,7 +476,7 @@ class Generator {
 
   public function root(root:Children):Expr
     return 
-      onlyChild.bind(root).scoped().log();
+      onlyChild.bind(root).scoped();
 
 }
 
