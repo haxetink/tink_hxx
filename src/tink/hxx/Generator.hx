@@ -200,7 +200,7 @@ class Generator {
     var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
       case null: None;
       case v: 
-        Some(makeChildren(v, children.toComplex()));
+        Some(makeChildren(v, children.toComplex(), true));
     }, fields);
 
     var attrType = fieldsType.toComplex();
@@ -269,7 +269,7 @@ class Generator {
         makeChildren(n.children, switch t {
           case Some(t): t.toComplex();
           default: n.name.pos.makeBlankType();
-        });
+        }, true).log();
     };    
   }
 
@@ -345,17 +345,23 @@ class Generator {
       case v: v;
     }
 
-  function makeChildren(c:Children, ct:ComplexType)
+  function isOnlyChild(ct:ComplexType)
+    return !(macro for (i in (null:$ct)) {}).typeof().isSuccess();
+
+  function makeChildren(c:Children, ct:ComplexType, root:Bool)
     return
-      macro @:pos(c.pos) {
-        var $OUT = [];
-        ($i{OUT} : $ct);
-        ${flatten(c)};
-        $i{OUT};
-      }
+      if (isOnlyChild(ct))
+        onlyChild(c, root);
+      else
+        macro @:pos(c.pos) {
+          var $OUT = [];
+          ($i{OUT} : $ct);
+          ${flatten(c)};
+          $i{OUT};
+        }
 
   function makeBody(c:Children, ct:ComplexType)
-    return makeChildren(c, ct);
+    return makeChildren(c, ct, true);
 
   function child(c:Child, flatten:Children->Expr):Expr
     return switch c.value {
@@ -380,7 +386,8 @@ class Generator {
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
+          // expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
+          expr: flatten(c.children),//TODO: avoid bouncing here
         }], null).at(c.pos);
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
@@ -452,20 +459,24 @@ class Generator {
     return s.substring(pos, max);
   }  
 
-  function onlyChild(c:Children) 
-    return switch c.value {
+  function onlyChild(c:Children, ?root = true) 
+    return switch normalize(c.value) {
       case []: c.pos.error('Empty HXX');
-      case [v]: macro @:pos(c.pos) {
-        var $OUT = [];
-        ${child(v, this.onlyChild)};
-        $i{OUT}[0];
-      }
+      case [v]: 
+        var child = child(v, this.onlyChild.bind(_, false));
+        if (root)
+          macro @:pos(c.pos) {
+            var $OUT = [];
+            $child;
+            $i{OUT}[0];
+          }
+        else child;
       case v: v[1].pos.error('Only one element allowed here');
     }   
 
   public function root(root:Children):Expr
     return 
-      onlyChild.bind(root).scoped();
+      onlyChild.bind(root).scoped().log();
 
 }
 
