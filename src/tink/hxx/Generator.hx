@@ -351,7 +351,7 @@ class Generator {
   function makeChildren(c:Children, ct:ComplexType, root:Bool)
     return
       if (isOnlyChild(ct))
-        onlyChild(c, root);
+        onlyChild(c, root, ct);
       else
         macro @:pos(c.pos) {
           var $OUT = [];
@@ -386,8 +386,7 @@ class Generator {
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          // expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
-          expr: flatten(c.children),//TODO: avoid bouncing here
+          expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
         }], null).at(c.pos);
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
@@ -459,17 +458,25 @@ class Generator {
     return s.substring(pos, max);
   }  
 
-  function onlyChild(c:Children, ?root = true) 
+  function onlyChild(c:Children, ?root = true, ?expected:ComplexType) 
     return switch normalize(c.value) {
       case []: c.pos.error('Empty HXX');
       case [v]: 
         var child = child(v, this.onlyChild.bind(_, false));
-        if (root)
-          macro @:pos(c.pos) {
-            var $OUT = [];
-            $child;
-            $i{OUT}[0];
-          }
+        if (root) {
+          if (expected == null)
+            macro @:pos(c.pos) {
+              var $OUT = [];
+              $child;
+              $i{OUT}[0];
+            }
+          else
+            macro @:pos(c.pos) {
+              var $OUT:Array<$expected> = [];
+              $child;
+              $i{OUT}[0];
+            }            
+        }
         else child;
       case v: v[1].pos.error('Only one element allowed here');
     }   
