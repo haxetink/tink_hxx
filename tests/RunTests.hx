@@ -51,7 +51,7 @@ class RunTests extends TestCase {
     
     assertDeepEqual(tag('test', {}, [text(' test '), foo, text('test'), foo, text(' ')]), dom('  <test> test {foo}test${foo} </test>  '));
     assertDeepEqual(tag('test', {}, [text('  '), text(' ')]), dom('  <test>  <!-- ignore this please --> </test>  '));
-    // assertDeepEqual([tag('foo', { } ), text(' '), tag('bar', { } ), tag('baz', { } )], dom('<wrap><foo /> <bar></bar><baz /></wrap>'));
+    assertDeepEqual([tag('foo', { } ), text(' '), tag('bar', { } ), tag('baz', { } )], dom('<wrap><foo /> <bar></bar><baz /></wrap>').children);
     
     assertDeepEqual(tag('test', {}, ['foo']), dom('<test>foo</test>'));    
     assertDeepEqual(tag('test', {}, [' foo']), dom('<test> foo</test>'));    

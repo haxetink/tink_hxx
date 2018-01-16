@@ -6,8 +6,9 @@ abstract AttrVal(String) from String to String {
     return if (b) "" else null;
 }
 
+@:forward
 abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } { 
-
+    
   static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Array<Dummy>):Dummy
     return { name: name, attr: attr, children: children };
   
@@ -95,7 +96,7 @@ class DummyGen extends tink.hxx.Generator {
     var children = 
       switch n.children {
         case null | { value: null | [] }: macro null;
-        case v: makeChildren(v, macro : Dummy);
+        case v: makeChildren(v, macro : Array<Dummy>, false);
       }
     return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
   }
