@@ -6,7 +6,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import tink.anon.Macro.*;
-import tink.anon.Macro.Part;
+import tink.anon.Macro;
 
 using haxe.macro.Tools;
 using tink.CoreApi;
@@ -211,7 +211,7 @@ class Generator {
         splats,
         function (name) return switch fields[name] {
           case null: Failure(new Error('Superflous field `$name`'));
-          case f: Success(Some(f.type));
+          case f: Success(Some((f:FieldInfo)));
         },
         attrType
       );
