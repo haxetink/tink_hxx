@@ -14,6 +14,7 @@ using tink.CoreApi;
 
 typedef ParserConfig = {
   defaultExtension:String,
+  ?fragment:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
   ?isVoid:String->Bool,
@@ -119,43 +120,50 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   }
   
   function parseChild() return located(function () {
-    var name = withPos(ident(true).sure());
+    var fragment = allowHere('>');
+    if (fragment && config.fragment == null)
+      die('Fragments not supported');
+    var name = withPos(
+      if (fragment) source[pos-1...pos-1];
+      else ident(true).sure()
+    );
     
     var hasChildren = true;
     var attrs = new Array<Attribute>();
     
-    while (!allow('>')) {
-      if (allow('/')) {
-        expect('>');
-        hasChildren = false;
-        break;
-      }
-      
-      if (allow("${") || allow('{')) {        
-        if (allow('...')) {
-          attrs.push(Splat(ballancedExpr('{', '}')));
-          continue;
+    if (!fragment)
+      while (!allow('>')) {
+        if (allow('/')) {
+          expect('>');
+          hasChildren = false;
+          break;
         }
-        die('unexpected {');
+        
+        if (allow("${") || allow('{')) {        
+          if (allow('...')) {
+            attrs.push(Splat(ballancedExpr('{', '}')));
+            continue;
+          }
+          die('unexpected {');
+        }
+        var attr = withPos(ident().sure());
+                
+        attrs.push(
+          if (allow('=')) 
+            Regular(attr, switch argExpr() {
+              case Success(e): macro @:pos(e.pos) ($e);
+              default:
+                //TODO: allow numbers here
+                var s = parseString();
+                EConst(CString(s.value)).at(s.pos);
+            })
+          else
+            Empty(attr)
+        );
       }
-      var attr = withPos(ident().sure());
-              
-      attrs.push(
-        if (allow('=')) 
-          Regular(attr, switch argExpr() {
-            case Success(e): e;
-            default:
-              //TODO: allow numbers here
-              var s = parseString();
-              EConst(CString(s.value)).at(s.pos);
-          })
-        else
-          Empty(attr)
-      );
-    }
     
     return CNode({
-      name: name, 
+      name: if (fragment) { value: config.fragment, pos: name.pos } else name,
       attributes: attrs, 
       children: if (hasChildren && !isVoid(name.value)) parseChildren(name.value) else null
     });
@@ -204,8 +212,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           else if (allowHere('!'))
             die('Invalid comment or unsupported processing instruction');
           else if (allowHere('/')) {
-            var found = ident(true).sure();
-            expectHere('>');
+            var found = 
+              if (allowHere('>')) 
+                source[pos - 1 ... pos - 1];
+              else 
+                ident(true).sure() + expectHere('>');
             if (found != closing)
               die(
                 if (isVoid(found))
