@@ -6,8 +6,6 @@ import haxe.unit.TestCase;
 import haxe.unit.TestRunner;
 import Dummy.*;
 
-using StringTools;
-
 class RunTests extends TestCase {
 
   function assertDeepEqual<A>(a:A, b:A, ?pos:PosInfos) {
@@ -30,7 +28,8 @@ class RunTests extends TestCase {
     assertDeepEqual(tag('test', {}), dom('  <test/>  '));
     assertDeepEqual(tag('test', {}), dom('  <test / >  '));
     assertDeepEqual(tag('test', {}), dom('  <test></test>  '));
-    assertDeepEqual(tag('test', { }, [text('   ')]), dom('  <test>   </test>  '));
+    assertDeepEqual(tag('test', { }, [text('   ')]), dom('  
+    <test>   </test>  '));
     
     var numbers = [for (i in 0...100) i];
     

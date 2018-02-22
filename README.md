@@ -11,7 +11,7 @@ Unsurprisingly, you can embed expressions in HXX, either by using JSX like synta
   
 ## Control structures
 
-HXX has support for control structures, unless disabled per `config.noControlStructures` in the parser.
+HXX has support for control structures, unless disabled per `config.noControlStructures` in the parser, in which case `if`, `switch` and `for` will be interpreted as regular tags.
   
 ### If
 

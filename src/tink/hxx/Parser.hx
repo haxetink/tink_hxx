@@ -6,7 +6,6 @@ import tink.parse.Char.*;
 import tink.parse.ParserBase;
 import tink.parse.StringSlice;
 import haxe.macro.Context;
-import tink.hxx.Parser.ParserConfig;
 
 using StringTools;
 using haxe.io.Path;
@@ -109,7 +108,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   function kwd(name:String) {
     if (config.noControlStructures) return false;
     var pos = pos;
-    var isIf = isNext('if');
     
     var found = switch ident(true) {
       case Success(v) if (v == name): true;
@@ -133,9 +131,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         break;
       }
       
-      if (allow("${") || allow('{')) {
-        var pos = pos;
-        
+      if (allow("${") || allow('{')) {        
         if (allow('...')) {
           attrs.push(Splat(ballancedExpr('{', '}')));
           continue;
