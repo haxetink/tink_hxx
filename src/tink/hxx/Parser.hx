@@ -21,20 +21,56 @@ typedef ParserConfig = {
   //?interceptTag:String->Option<StringAt->Expr>, <--- consider adding this back
 }
 
+private typedef ParserSourceData = {
+  var source:StringSlice;  
+  var offset:Int;
+  var fileName:String;
+}
+
+@:forward
+abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceData {
+
+  @:from static function fromExpr(e:Expr) {
+    return ofExpr(e);
+  }
+
+  static public function ofExpr(e:Expr):ParserSource {
+    var s = e.getString().sure(),
+        pos = Context.getPosInfos(e.pos);  
+
+    return ({
+      source: s,
+      offset: pos.min + 1, 
+      fileName: pos.file,
+    }:ParserSourceData);
+  }
+}
+
 class Parser extends ParserBase<Position, haxe.macro.Error> { 
   
   var fileName:String;
   var offset:Int;
   var config:ParserConfig;
   var isVoid:String->Bool;
-  
-  function new(fileName, source, offset, config) {
-    this.fileName = fileName;
-    this.offset = offset;
+  var createParser:ParserSource->Parser;
+
+  function new(setup:ParserSource, createParser, ?config:ParserConfig) {
+
+    if (config == null)
+      config = {
+        defaultExtension: 'hxx',
+        noControlStructures: false,
+      }
+
+    this.createParser = createParser;
+    this.fileName = setup.fileName;
+    this.offset = setup.offset;
     this.config = config;
-    super(source);
+
+    super(setup.source);
     
-    function get<T>(o:{ var isVoid(default, null):T; }) return o.isVoid;
+    function get<T>(o:{ var isVoid(default, null):T; }) 
+      return o.isVoid;
 
     this.isVoid = switch get(config) {
       case null: function (_) return false;
@@ -42,7 +78,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
   }
   
-  function withPos(s:StringSlice, ?transform:String->String):StringAt {
+  function withPos(s:StringSlice, ?transform:String->String):StringAt 
     return {
       pos: doMakePos(s.start, s.end),
       value: switch transform {
@@ -50,7 +86,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         case v: v(s);
       },
     }
-  }
   
   function processExpr(e:Expr) 
     return
@@ -125,7 +160,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       die('Fragments not supported');
     var name = withPos(
       if (fragment) source[pos-1...pos-1];
-      else ident(true).sure()
+      else tagName()
     );
     
     var hasChildren = true;
@@ -178,6 +213,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       }
     return  withPos(upto(end).sure(), StringTools.htmlUnescape);
   }
+
+  function tagName() 
+    return ident(true).sure();
   
   function parseChildren(?closing:String):Children {
     var ret:Array<Child> = [],
@@ -216,7 +254,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
               if (allowHere('>')) 
                 source[pos - 1 ... pos - 1];
               else 
-                ident(true).sure() + expectHere('>');
+                tagName() + expectHere('>');
             if (found != closing)
               die(
                 if (isVoid(found))
@@ -273,7 +311,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             
             Context.registerModuleDependency(Context.getLocalModule(), name);
                 
-            var p = new Parser(name, content, 0, config);
+            var p = createParser({ fileName: name, source: (content:StringSlice), offset: 0 });
             for (c in p.parseChildren().value)
               ret.push(c);
             
@@ -393,38 +431,25 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return 
       new haxe.macro.Expr.Error(message, pos);
   
-  override function doSkipIgnored() {
+  override function doSkipIgnored() 
     doReadWhile(WHITE);
-    
-    if (allow('//'))
-      doReadWhile(function (c) return c != 10);
-      
-    if (allow('/*'))
-      upto('*/').sure();
-      
-    if (allow('#if')) {
-      throw 'not implemented';
-    }
-  }  
-  
-  static public function parseRoot(e:Expr, ?config:ParserConfig) {
-    if (config == null) 
-      config = {
-        defaultExtension: 'hxx',
-        noControlStructures: false,
-      }
-    var s = e.getString().sure();
-    var pos = Context.getPosInfos(e.pos);
-    var p = new Parser(pos.file, s, pos.min + 1, config);
-    p.skipIgnored();
+
+  public function parseRootNode() {
+    skipIgnored();
     return try {
-      p.parseChildren();
+      parseChildren();
     }
     catch (e:Case) 
-      p.die('case outside of switch', p.pos - 4 ... p.pos)
+      die('case outside of switch', pos - 4 ... pos)
     catch (e:Else)
-      p.die('else without if', p.pos - 4 ... p.pos); 
+      die('else without if', pos - 4 ... pos);    
   }
+  
+  static public function parseRootWith(e:Expr, createParser:ParserSource->Parser) 
+    return createParser(e).parseRootNode(); 
+
+  static public function parseRoot(e:Expr, ?config:ParserConfig) 
+    return parseRootWith(e, function create(source) return new Parser(source, create, config));
 
 }
 private class Branch {
