@@ -9,8 +9,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.15.0",
-	"releasenote": "A few tweaks for smoother haxe-react support.",
+	"version": "0.15.1",
+	"releasenote": "Improve parser extensibility.",
 	"tags": [
 		"tink",
 		"hxx",
