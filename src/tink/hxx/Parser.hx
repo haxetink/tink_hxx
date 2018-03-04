@@ -448,9 +448,12 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   static public function parseRootWith(e:Expr, createParser:ParserSource->Parser) 
     return createParser(e).parseRootNode(); 
 
-  static public function parseRoot(e:Expr, ?config:ParserConfig) 
-    return parseRootWith(e, function create(source) return new Parser(source, create, config));
-
+  static public function parseRoot(e:Expr, ?config:ParserConfig) {
+    function create(source:ParserSource):Parser
+      return new Parser(source, create, config);
+    return parseRootWith(e, create);
+  }
+    
 }
 private class Branch {
   
