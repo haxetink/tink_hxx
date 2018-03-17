@@ -75,19 +75,42 @@ class Generator {
         return 
           switch expected {
             case Some(_.reduce() => t):
-              function liftAsFunction(wrapped:Expr) {
-                var ct = t.toComplex();
-                return 
-                  if (!value.is(ct) && wrapped.is(ct)) wrapped
-                  else value;
-              }            
+              function liftCallback(eventType:Type) 
+                return (function () {
+                  while (true) switch value {
+                    case macro ($v): value = v;
+                    default: break;
+                  }
+                  if (value.expr.match(EFunction(_, _)))
+                    return value;
+
+                  var evt = eventType.toComplex();
+
+                  return switch Context.typeExpr(macro @:pos(value.pos) function (event:$evt) $value) {
+                    case typed = { expr: TFunction(f) }:
+                      Context.storeTypedExpr(
+                        switch Context.followWithAbstracts(f.expr.t) {
+                          case TFun(_, _): f.expr;
+                          default: 
+                          typed;
+                        }
+                      );
+                    case v: throw "assert";
+                  }
+                }).bounce();     
               switch t {
-                case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [_]):
-                  liftAsFunction.bind(macro @:pos(value.pos) function (event) $value).bounce();
-                case TFun([_], _.getID() => 'Void'):
-                  liftAsFunction.bind(macro @:pos(value.pos) function (event) $value).bounce();
+                case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
+                  liftCallback(evt);
+                case TFun([{ t: evt }], _.getID() => 'Void'):
+                  liftCallback(evt);
                 case TFun([], _.getID() => 'Void'):
-                  liftAsFunction(macro @:pos(value.pos) function () $value);
+                  (function () {
+                    var typed = Context.typeExpr(value);
+                    var body = Context.storeTypedExpr(typed);
+                    return 
+                      if (typed.t.reduce().match(TFun(_, _))) body;
+                      else macro @:pos(value.pos) function () $body;
+                  }).bounce();
                 default: value;
               }
             default: 
