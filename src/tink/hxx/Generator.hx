@@ -15,10 +15,10 @@ using StringTools;
 
 class Generator {
   static inline var OUT = '__r';
-  public var resolvers:Array<StringAt->StringAt>;
+  public var defaults(default, null):Lazy<Array<Named<Tag>>>;
 
-  public function new(?resolvers) 
-    this.resolvers = switch resolvers {
+  public function new(?defaults) 
+    this.defaults = switch defaults {
       case null: [];
       case v: v;
     }
@@ -121,16 +121,19 @@ class Generator {
         fields = null,
         fieldsType = null,
         childrenAreAttribute = false;
-
+    var tagName = {
+      value: tag.name,
+      pos: n.name.pos
+    };
     switch tag.args {
       case PlainArg(t):
         if (n.children != null) 
-          tag.name.pos.error('children not allowed on <${tag.name.value}/>');
+          tagName.pos.error('children not allowed on <${tagName.value}/>');
         switch n.attributes {
           case [Splat(e)]:
-            return plain(tag.name, tag.isClass, e, pos);
+            return plain(tagName, tag.isClass, e, pos);
           default: 
-            tag.name.pos.error('<${tag.name.value}/> must have exactly one spread and no other attributes');
+            tagName.pos.error('<${tagName.value}/> must have exactly one spread and no other attributes');
         }
         
       case JustAttributes(a, t):
@@ -216,7 +219,7 @@ class Generator {
         attrType
       );
 
-    return instantiate(tag.name, tag.isClass, key, obj, mangled.children);
+    return instantiate(tagName, tag.isClass, key, obj, mangled.children);
   }
 
   function complexAttribute(n:Node) {
@@ -273,77 +276,12 @@ class Generator {
     };    
   }
 
-  function getTag(name:StringAt):Tag {
-
-    function anon(anon:AnonType, t, lift:Bool, children:Type) {
-      var fields = [for (f in anon.fields) f.name => f];
-      
-      var childrenAreAttribute = fields.exists('children');
-      
-      if (childrenAreAttribute) {
-        if (children == null) 
-          children = fields['children'].type;
-        else 
-          name.pos.error('tag requires child list and children attribute');
-      }
-      return 
-        if (children == null)
-          JustAttributes(fields, t);
-        else
-          Full(fields, t, children, childrenAreAttribute);
-    }
-
-    function mk(t:Type, ?children:Type, isClass:Bool, name):Tag
-      return {
-        name: name,
-        isClass: isClass,
-        args: switch t.reduce() {
-          case TAnonymous(a):
-            anon(a.get(), t, false, children);
-          default:
-            PlainArg(t);
-        }
-      }
-
-    function makeFrom(name:StringAt, type:Type)
-      return 
-        switch type.reduce() {
-          case TFun([{ t: a }, { t: c }], _): 
-            return mk(a, c, false, name);
-          case TFun([{ t: a }], _): 
-            return mk(a, false, name);              
-          case v: 
-            return switch '${name.value}.new'.resolve(name.pos).typeof() {
-              case Success(TFun([{ t: a }, { t: c }], _)):
-                mk(a, c, true, name);
-              case Success(TFun([{ t: a }], _)):
-                mk(a, true, name);
-              default:
-                name.pos.error('${name.value} has type $v which is unsuitable for HXX ${Context.defined("display")}');
-            }
-        }
-
-    switch lookup(name) {
-      case Success(t): 
-        return makeFrom(name, t);
-      case Failure(e):
-        for (r in resolvers) {
-          var name = r(name);
-          switch lookup(name) {
-            case Success(t):
-              return makeFrom(name, t);
-            default:
-          }
-        }
-        return e.throwSelf();
-    }
-  }
-
-  function lookup(name:StringAt)
-    return switch name.value.resolve(name.pos).typeof() {
-      case Success(TMono(_.get() => null)) if (Context.defined('display')): Failure(new Error('Unknown ${name.value}', name.pos));
-      case v: v;
-    }
+  function getTag(name:StringAt):Tag 
+    return (switch localTags[name.value] {
+      case null: 
+        localTags[name.value] = tagDeclaration.bind(name.value, _, name.value.resolve(name.pos).typeof().sure());
+      case get: get;
+    })(name.pos);
 
   function isOnlyChild(ct:ComplexType)
     return !(macro for (i in (null:$ct)) {}).typeof().isSuccess();
@@ -479,11 +417,116 @@ class Generator {
         }
         else child;
       case v: v[1].pos.error('Only one element allowed here');
-    }   
+    }  
 
-  public function root(root:Children):Expr
+  static function makeArgs(pos:Position, t:Type, ?children:Type):TagArgs {
+    function anon(anon:AnonType, t, lift:Bool, children:Type) {
+      var fields = [for (f in anon.fields) f.name => f];
+      
+      var childrenAreAttribute = fields.exists('children');
+      
+      if (childrenAreAttribute) {
+        if (children == null) 
+          children = fields['children'].type;
+        else 
+          pos.error('tag requires child list and children attribute');
+      }
+      return 
+        if (children == null)
+          JustAttributes(fields, t);
+        else
+          Full(fields, t, children, childrenAreAttribute);
+    }    
+
     return 
-      onlyChild.bind(root).scoped();
+      switch t.reduce() {
+        case TAnonymous(a):
+          anon(a.get(), t, false, children);
+        default:
+          if (children != null) throw 'assert';
+          PlainArg(t);
+      }
+  }
+
+  var localTags:Map<String, Position->Tag>;
+  
+  static public function tagDeclaration(name:String, pos:Position, type:Type):Tag {
+
+    function mk(a, ?c, ?isClass):Tag
+      return {
+        isClass: isClass, 
+        args: makeArgs(pos, a, c), 
+        name: name,
+      };
+
+    return
+      switch type.reduce() {
+        case TFun([{ t: a }, { t: c }], _): 
+          mk(a, c);
+        case TFun([{ t: a }], _): 
+          mk(a);  
+        case v:
+          return switch '${name}.new'.resolve(pos).typeof() {
+            case Success(TFun([{ t: a }, { t: c }], _)):
+              mk(a, c, true);
+            case Success(TFun([{ t: a }], _)):
+              mk(a, true);
+            default:
+              pos.error(
+                if (Context.defined('display') && v.match(TMono(_.get() => null))) 'unknown tag $name'
+                else '$name has type $v which is unsuitable for HXX'
+              );
+          }          
+      }
+  }
+
+  function getLocalTags() {
+    localTags = new Map();
+    function add(name, type)
+      localTags[name] = {
+        var ret = null;
+        function (pos) {
+          if (ret == null) 
+            ret = tagDeclaration(name, pos, type);
+          return ret;
+        }
+      }
+    var vars = Context.getLocalVars();
+    for (name in vars.keys())
+      add(name, vars[name]);
+
+    switch Context.getLocalType() {
+      case null:
+      case v = TInst(_.get().statics.get() => statics, _):
+
+        var fields = [for (f in v.getFields(false).sure()) f.name => f],
+            method = Context.getLocalMethod();
+
+        if (fields.exists(method) || method == 'new') 
+          for (f in fields) 
+            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic))) {
+              var name = f.name;
+              add(name, (macro @:pos(f.pos) this.$name).typeof().sure());
+            }
+        for (f in statics)
+          add(f.name, f.type);
+
+      default:
+    }
+    for (d in defaults.get())
+      localTags[d.name] = function (_) return d.value;
+  } 
+
+  public function root(root:Children):Expr {
+    var last = localTags;
+    return tink.core.Error.tryFinally(
+      function () {
+        getLocalTags();
+        return onlyChild.bind(root).scoped();
+      },
+      function () localTags = last
+    );
+  }
 
 }
 
@@ -496,6 +539,6 @@ enum TagArgs {
 typedef Tag = {
   var isClass(default, never):Bool;
   var args(default, never):TagArgs;
-  var name(default, never):StringAt;
+  var name(default, never):String;
 }
 #end
