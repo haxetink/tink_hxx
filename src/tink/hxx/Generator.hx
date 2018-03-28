@@ -76,7 +76,7 @@ class Generator {
           switch expected {
             case Some(_.reduce() => t):
               function liftCallback(eventType:Type) 
-                return (function () {
+                return later(function () {
                   while (true) switch value {
                     case macro ($v): value = v;
                     default: break;
@@ -97,20 +97,20 @@ class Generator {
                       );
                     case v: throw "assert";
                   }
-                }).bounce();     
+                });
               switch t {
                 case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
                   liftCallback(evt);
                 case TFun([{ t: evt }], _.getID() => 'Void'):
                   liftCallback(evt);
                 case TFun([], _.getID() => 'Void'):
-                  (function () {
+                  later(function () {
                     var typed = Context.typeExpr(value);
                     var body = Context.storeTypedExpr(typed);
                     return 
                       if (typed.t.reduce().match(TFun(_, _))) body;
                       else macro @:pos(value.pos) function () $body;
-                  }).bounce();
+                  });
                 default: value;
               }
             default: 
@@ -284,7 +284,7 @@ class Generator {
           }
 
         var body =      
-          makeBody.bind(n.children, ret.toComplex()).bounce();
+          later(makeBody.bind(n.children, ret.toComplex()));
         if (splat)
           body = macro @:pos(body.pos) {
             tink.Anon.splat(__data__);
@@ -347,7 +347,7 @@ class Generator {
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          expr: flatten.bind(c.children).bounce(),//TODO: avoid bouncing here
+          expr: later(flatten.bind(c.children)),//TODO: avoid bouncing here
         }], null).at(c.pos);
       case CIf(cond, cons, alt): 
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
@@ -504,7 +504,7 @@ class Generator {
   }
 
   function getLocalTags() {
-    localTags = new Map();
+    var localTags = new Map();
     function add(name, type)
       localTags[name] = {
         var ret = null;
@@ -538,18 +538,25 @@ class Generator {
     }
     for (d in defaults.get())
       localTags[d.name] = function (_) return d.value;
+    return localTags;
   } 
 
-  public function root(root:Children):Expr {
+  function withTags<T>(tags, f:Void->T) {
     var last = localTags;
     return tink.core.Error.tryFinally(
       function () {
-        getLocalTags();
-        return onlyChild.bind(root).scoped();
+        localTags = tags;
+        return f();
       },
       function () localTags = last
     );
   }
+
+  function later(e:Void->Expr) 
+    return withTags.bind(localTags, e).bounce();
+
+  public function root(root:Children):Expr 
+    return withTags(getLocalTags(), function () return onlyChild.bind(root).scoped());
 
 }
 
