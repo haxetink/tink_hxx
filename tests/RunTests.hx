@@ -66,6 +66,16 @@ class RunTests extends TestCase {
       <div bar="321" {...o1} ${...o2} />
     ').format());
   }
+
+  function testLet() {
+    var o1 = { foo: 'o1', bar: '42' };
+    assertEquals(
+      '<div>${o1.foo} ${o1.bar} 123</div>',
+      dom('<let baz={123} {...o1}>
+        <div>{foo} {bar} {baz}</div>
+      </let>').format()
+    );
+  }
   
   function testControl() {
     var other = dom('<other/>');

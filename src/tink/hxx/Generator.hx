@@ -349,9 +349,37 @@ class Generator {
           guard: c.guard,
           expr: later(flatten.bind(c.children)),//TODO: avoid bouncing here
         }], null).at(c.pos);
+
       case CIf(cond, cons, alt): 
+        
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
+
+      case CLet(defs, c):
+
+        var vars:Array<Var> = [];
+        function add(name, value)
+          vars.push({
+            name: name,
+            type: null,
+            expr: value,
+          });
+
+        for (d in defs) switch d {
+          case Empty(a): a.pos.error('empty attributes not allowed on <let>');
+          case Regular(a, v):
+            add(a.value, v);
+          case Splat(e):
+            var tmp = MacroApi.tempName();
+            add(tmp, e);
+            for (f in e.typeof().sure().getFields().sure()) 
+              if (f.isPublic && !f.kind.match(FMethod(MethMacro)))
+                add(f.name, macro @:pos(e.pos) $p{[tmp, f.name]});
+        }
+        
+        [EVars(vars).at(c.pos), flatten.bind(c).inSubScope(vars)].toBlock(c.pos);
+
       case CFor(head, body): 
+        
         macro @:pos(c.pos) for ($head) ${
           flatten.bind(body).inSubScope(switch head {
             case macro $i{name} in $target: 

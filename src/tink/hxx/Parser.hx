@@ -153,6 +153,47 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     if (!found) this.pos = pos;
     return found;
   }
+
+  function parseAttributes() {
+
+    var ret = new Array<Attribute>(),
+        selfClosing = false;
+
+    while (!allow('>')) {
+      if (allow('/')) {
+        expect('>');
+        selfClosing = true;
+        break;
+      }
+      
+      if (allow("${") || allow('{')) {        
+        if (allow('...')) {
+          ret.push(Splat(ballancedExpr('{', '}')));
+          continue;
+        }
+        die('unexpected {');
+      }
+      var attr = withPos(ident().sure());
+              
+      ret.push(
+        if (allow('=')) 
+          Regular(attr, switch argExpr() {
+            case Success(e): macro @:pos(e.pos) ($e);
+            default:
+              //TODO: allow numbers here
+              var s = parseString();
+              EConst(CString(s.value)).at(s.pos);
+          })
+        else
+          Empty(attr)
+      );
+    }   
+
+    return {
+      selfClosing: selfClosing,
+      attributes: ret,
+    }     
+  }
   
   function parseChild() return located(function () {
     var fragment = allowHere('>');
@@ -164,38 +205,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     );
     
     var hasChildren = true;
-    var attrs = new Array<Attribute>();
+    var attrs = [];
     
-    if (!fragment)
-      while (!allow('>')) {
-        if (allow('/')) {
-          expect('>');
-          hasChildren = false;
-          break;
-        }
-        
-        if (allow("${") || allow('{')) {        
-          if (allow('...')) {
-            attrs.push(Splat(ballancedExpr('{', '}')));
-            continue;
-          }
-          die('unexpected {');
-        }
-        var attr = withPos(ident().sure());
-                
-        attrs.push(
-          if (allow('=')) 
-            Regular(attr, switch argExpr() {
-              case Success(e): macro @:pos(e.pos) ($e);
-              default:
-                //TODO: allow numbers here
-                var s = parseString();
-                EConst(CString(s.value)).at(s.pos);
-            })
-          else
-            Empty(attr)
-        );
-      }
+    if (!fragment) {
+      var r = parseAttributes();
+      hasChildren = !r.selfClosing;
+      attrs = r.attributes;
+    }
     
     return CNode({
       name: if (fragment) { value: config.fragment, pos: name.pos } else name,
@@ -265,11 +281,15 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
               );
             return result();
           }
-          else if (kwd('for')) {
+          else if (kwd('for')) 
             ret.push(located(function () {
               return CFor(argExpr().sure() + expect('>'), parseChildren('for'));
             }));
-          }
+          else if (kwd('let')) 
+            ret.push(located(function () return switch parseAttributes() {
+              case { selfClosing: true}: die('<let> may not be self-closing', pos-2...pos);
+              case { attributes: a }: CLet(a, parseChildren('let'));
+            }));
           else if (kwd('switch')) 
             ret.push(parseSwitch());
           else if (kwd('if')) 

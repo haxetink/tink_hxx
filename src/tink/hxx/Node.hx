@@ -1,8 +1,10 @@
 package tink.hxx;
 
 import haxe.macro.Expr;
+using tink.CoreApi;
 
 enum ChildKind {
+  CLet(vars:Array<Attribute>, c:Children);
   CIf(cond:Expr, cons:Children, alt:Children);
   CFor(head:Expr, body:Children);
   CSwitch(target:Expr, cases:Array<{ values:Array<Expr>, ?guard:Expr, children:Children }>);

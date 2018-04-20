@@ -64,9 +64,9 @@ Switch statements are also supported, including guards but without `default` bra
 
 ### For
 
-```html
 For loops are pretty straight forward:
 
+```html
 <for {day in forecast}>
   <weatherIcon day={day} />
 </for>
@@ -75,6 +75,43 @@ For loops are pretty straight forward:
 ## Spread
   
 HXX has the capacity to deal with spreads, e.g. `<someTag {...properties} />`. 
+
+## Let
+
+You can define variables with `<let>` and access them within the tag.
+
+```html
+<let foo={new Foo()} ids={[1,2,3,4]}>
+  <for {id in ids}>
+    <button onclick={foo.handleClick(id)}>Test</button>
+  </for>
+</let>
+```
+
+You may also use the spread operator with `<let>`. Say we have:
+
+```haxe
+var fooObj = {
+  foo: 'foo',
+  onfoo: function () trace('foo!'),
+}
+var barObj = {
+  bar: 'bar',
+  onbar: function () trace('bar!'),
+}
+```
+
+Then this will work:
+
+```html
+<let {...fooObj} {...barObj} blub="blub">
+  <button onclick={onfoo}>{foo}</button>
+  <button onclick={onbar}>{bar}</button>
+  <button>{blub}</button>
+</let>;
+```
+
+Note that `<let>` is disabled by disabling constrol structures.
 
 ## Whitespace
 
