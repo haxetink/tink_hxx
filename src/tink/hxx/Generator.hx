@@ -522,7 +522,7 @@ class Generator {
         ret.join('.');
       }
 
-      [for (f in e.typeof().sure().getFields().sure())
+      return [for (f in e.typeof().sure().getFields().sure())
         if (f.isPublic) switch f.kind {
           case FMethod(MethMacro): continue; 
           case FMethod(_): 
