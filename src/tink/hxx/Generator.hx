@@ -501,6 +501,41 @@ class Generator {
 
   var localTags:Map<String, Position->Tag>;
   
+  static public function extractTags(e:Expr) {
+    return function () {
+      var name = {
+        
+        var cur = e,
+            ret = [];
+        
+        while (true) switch cur {
+          case macro @:pos(p) $v.$name:
+            cur = v;
+            ret.push(name);
+          case macro $i{name}:
+            ret.push(name);
+            break;
+          default: cur.reject('dot path expected');
+        }
+
+        ret.reverse();
+        ret.join('.');
+      }
+
+      [for (f in e.typeof().sure().getFields().sure())
+        if (f.isPublic) switch f.kind {
+          case FMethod(MethMacro): continue; 
+          case FMethod(_): 
+            new Named(
+              f.name, 
+              tagDeclaration('$name.${f.name}', f.pos, f.type)
+            );
+          default: continue;
+        }
+      ];
+    }
+  }
+
   static public function tagDeclaration(name:String, pos:Position, type:Type):Tag {
 
     function mk(a, ?c, ?isClass):Tag
