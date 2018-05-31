@@ -1,16 +1,6 @@
 {
 	"name": "tink_hxx",
-	"classPath": "src",
-	"dependencies": {
-		"tink_anon": "",
-		"tink_parse": ""
-	},
-	"url": "https://github.com/haxetink/tink_hxx/",
-	"contributors": [
-		"back2dos"
-	],
-	"version": "0.15.2",
-	"releasenote": "Improve parser extensibility.",
+	"license": "MIT",
 	"tags": [
 		"tink",
 		"hxx",
@@ -20,5 +10,15 @@
 		"template",
 		"cross"
 	],
-	"license": "MIT"
+	"classPath": "src",
+	"contributors": [
+		"back2dos"
+	],
+	"releasenote": "Various generator improvements.",
+	"version": "0.16.0",
+	"url": "https://github.com/haxetink/tink_hxx/",
+	"dependencies": {
+		"tink_parse": "",
+		"tink_anon": ""
+	}
 }
