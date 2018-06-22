@@ -226,7 +226,7 @@ class Generator {
     var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
       case null: None;
       case v: 
-        Some(makeChildren(v, children.toComplex(), true));
+        Some(makeChildren(v, children, true));
     }, fields);
 
     var attrType = fieldsType.toComplex();
@@ -284,7 +284,7 @@ class Generator {
           }
 
         var body =      
-          later(makeBody.bind(n.children, ret.toComplex()));
+          later(makeBody.bind(n.children, ret));
         if (splat)
           body = macro @:pos(body.pos) {
             tink.Anon.splat(__data__);
@@ -293,8 +293,8 @@ class Generator {
         body.func(args).asExpr();
       default: 
         makeChildren(n.children, switch t {
-          case Some(t): t.toComplex();
-          default: n.name.pos.makeBlankType();
+          case Some(t): t;
+          default: Context.typeof(macro @:pos(n.name.pos) null);
         }, true);
     };    
   }
@@ -306,12 +306,13 @@ class Generator {
       case get: get;
     })(name.pos);
 
-  function isOnlyChild(ct:ComplexType)
-    return !(macro for (i in (null:$ct)) {}).typeof().isSuccess();
+  function isOnlyChild(t:Type) 
+    return !Context.unify(Context.typeof(macro []), t);
 
-  function makeChildren(c:Children, ct:ComplexType, root:Bool)
+  function makeChildren(c:Children, t:Type, root:Bool) {
+    var ct = t.toComplex();
     return
-      if (isOnlyChild(ct))
+      if (isOnlyChild(t))
         onlyChild(c, root, ct);
       else
         macro @:pos(c.pos) {
@@ -320,9 +321,10 @@ class Generator {
           ${flatten(c)};
           $i{OUT};
         }
+  }
 
-  function makeBody(c:Children, ct:ComplexType)
-    return makeChildren(c, ct, true);
+  function makeBody(c:Children, t:Type)
+    return makeChildren(c, t, true);
 
   function child(c:Child, flatten:Children->Expr):Expr
     return switch c.value {
