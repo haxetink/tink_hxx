@@ -69,6 +69,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
 
 #if macro
 class DummyGen extends tink.hxx.Generator {
+  var childrenType = haxe.macro.ComplexTypeTools.toType(macro : Array<Dummy>);
   override function node(n:tink.hxx.Node, pos:haxe.macro.Expr.Position) {
 
     var attr:Array<tink.anon.Macro.Part> = [],
@@ -96,7 +97,7 @@ class DummyGen extends tink.hxx.Generator {
     var children = 
       switch n.children {
         case null | { value: null | [] }: macro null;
-        case v: makeChildren(v, macro : Array<Dummy>, false);
+        case v: makeChildren(v, childrenType, false);
       }
     return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
   }
