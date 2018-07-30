@@ -378,7 +378,7 @@ class Generator {
                 add(f.name, macro @:pos(e.pos) $p{[tmp, f.name]});
         }
         
-        [EVars(vars).at(c.pos), flatten.bind(c).inSubScope(vars)].toBlock(c.pos);
+        [EVars(vars).at(c.pos), later(flatten.bind(c))].toBlock(c.pos);//TODO: find a reliable solution without bouncing
 
       case CFor(head, body): 
         
