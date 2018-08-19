@@ -118,26 +118,30 @@ class Generator {
           }
     };
 
-  function instantiate(name:StringAt, isClass:Bool, key:Option<Expr>, attr:Expr, children:Option<Expr>)
+  function instantiate(name:StringAt, create:TagCreate, key:Option<Expr>, attr:Expr, children:Option<Expr>)
     return switch key {
       case None:
-        invoke(name, isClass, [attr].concat(children.toArray()), name.pos);
+        invoke(name, create, [attr].concat(children.toArray()), name.pos);
       case Some(key):
         key.reject('key handling not available in this HXX flavor');        
     }
 
-  function invoke(name:StringAt, isClass:Bool, args:Array<Expr>, pos:Position)
+  function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
     return 
-      if (isClass)
-        name.value.instantiate(args, pos);
-      else
-        name.value.resolve(pos).call(args, pos);  
+      switch create {
+        case New:
+          name.value.instantiate(args, pos);
+        case FromHxx:
+          '${name.value}.fromHxx'.resolve(pos).call(args, pos);
+        case Call:
+          name.value.resolve(pos).call(args, pos);  
+      }
 
   function node(n:Node, pos:Position) 
     return tag(n, getTag(n.name), pos);
 
-  function plain(name:StringAt, isClass:Bool, arg:Expr, pos:Position)
-    return invoke(name, isClass, [arg], pos);
+  function plain(name:StringAt, create:TagCreate, arg:Expr, pos:Position)
+    return invoke(name, create, [arg], pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
     var children = null,
@@ -154,7 +158,7 @@ class Generator {
           tagName.pos.error('children not allowed on <${tagName.value}/>');
         switch n.attributes {
           case [Splat(e)]:
-            return plain(tagName, tag.isClass, e, pos);
+            return plain(tagName, tag.create, e, pos);
           default: 
             tagName.pos.error('<${tagName.value}/> must have exactly one spread and no other attributes');
         }
@@ -242,7 +246,7 @@ class Generator {
         attrType
       );
 
-    return instantiate(tagName, tag.isClass, key, obj, mangled.children);
+    return instantiate(tagName, tag.create, key, obj, mangled.children);
   }
 
   function complexAttribute(n:Node) {
@@ -540,31 +544,48 @@ class Generator {
 
   static public function tagDeclaration(name:String, pos:Position, type:Type):Tag {
 
-    function mk(a, ?c, ?isClass):Tag
+    function mk(args, create):Tag {
+      TFun(args, null);//force inference
+      var children = null;
+      var attr = 
+        switch args {
+          case [{ t: a }, { t: c }]:
+            children = c;
+            a;
+          case [{ t: a }]:
+            a;
+          default: pos.error('Function $name is not suitable as a hxx tag because it must have 1 or 2 arguments, but has ${args.length} instead');
+        }
       return {
-        isClass: isClass, 
-        args: makeArgs(pos, a, c), 
+        create: create, 
+        args: makeArgs(pos, attr, children), 
         name: name,
       };
+    }
 
     return
       switch type.reduce() {
-        case TFun([{ t: a }, { t: c }], _): 
-          mk(a, c);
-        case TFun([{ t: a }], _): 
-          mk(a);  
+        case TFun(args, _): 
+          mk(args, Call);
         case v:
-          return switch '${name}.new'.resolve(pos).typeof() {
-            case Success(TFun([{ t: a }, { t: c }], _)):
-              mk(a, c, true);
-            case Success(TFun([{ t: a }], _)):
-              mk(a, true);
-            default:
-              pos.error(
-                if (Context.defined('display') && v.match(TMono(_.get() => null))) 'unknown tag $name'
-                else '$name has type $v which is unsuitable for HXX'
-              );
-          }          
+
+          if (Context.defined('display') && v.match(TMono(_.get() => null))) 
+            pos.error('unknown tag $name');
+
+          var options = [FromHxx, New],
+              ret = null;
+          
+          for (kind in options)
+            switch '$name.$kind'.resolve(pos).typeof() {
+              case Success(_.reduce() => TFun(args, _)):
+                ret = mk(args, kind);
+                break;
+              default: 
+            }
+
+          if (ret == null) 
+            pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
+          else ret;
       }
   }
 
@@ -632,8 +653,14 @@ enum TagArgs {
 }
 
 typedef Tag = {
-  var isClass(default, never):Bool;
+  var create(default, never):TagCreate;
   var args(default, never):TagArgs;
   var name(default, never):String;
+}
+
+@:enum abstract TagCreate(String) to String {
+  var Call = "call";
+  var New = "new";
+  var FromHxx = "fromHxx";
 }
 #end
