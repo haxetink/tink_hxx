@@ -98,9 +98,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         e;
       #end
 
-  function parseExpr(source, pos) {
-    var posInfos = haxe.macro.PositionTools.getInfos(pos);
-    if (posInfos.min == posInfos.max) return macro @:pos(pos) {};
+  function parseExpr(source:String, pos) {
+    source = ~/\/\*.*?\*\//g.replace(source, '');
+    if (source.trim().length == 0) return macro @:pos(pos) null;
 
     return
       processExpr( 
