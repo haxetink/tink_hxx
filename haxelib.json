@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Various generator improvements.",
-	"version": "0.16.0",
+	"releasenote": "Allow comment expressions and dollar in identifiers.",
+	"version": "0.17.0",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
