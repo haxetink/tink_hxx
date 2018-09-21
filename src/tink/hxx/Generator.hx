@@ -144,37 +144,17 @@ class Generator {
     return invoke(name, create, [arg], pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
-    var children = null,
-        fields = null,
-        fieldsType = null,
+
+    var aliases = tag.args.aliases,
+        children = tag.args.children,
+        fields = tag.args.fields,
+        fieldsType = tag.args.fieldsType,
         childrenAreAttribute = false;
+
     var tagName = {
       value: tag.name,
       pos: n.name.pos
     };
-    switch tag.args {
-      case PlainArg(t):
-        if (n.children != null) 
-          tagName.pos.error('children not allowed on <${tagName.value}/>');
-        switch n.attributes {
-          case [Splat(e)]:
-            return plain(tagName, tag.create, e, pos);
-          default: 
-            tagName.pos.error('<${tagName.value}/> must have exactly one spread and no other attributes');
-        }
-        
-      case JustAttributes(a, t):
-
-        fieldsType = t;
-        fields = a;
-
-      case Full(a, t, c, caa):
-
-        fields = a;
-        fieldsType = t;
-        children = c;      
-        childrenAreAttribute = caa;
-    }
     
     var splats = [
       for (a in n.attributes) switch a {
@@ -243,6 +223,11 @@ class Generator {
           case null: Failure(new Error('Superflous field `$name`'));
           case f: Success(Some((f:FieldInfo)));
         },
+        function (name) return switch aliases[name] {
+          case null: name;
+          case v: v;
+        },
+        n.name.pos,
         attrType
       );
 
@@ -476,9 +461,20 @@ class Generator {
       case v: v[1].pos.error('Only one element allowed here');
     }  
 
-  static function makeArgs(pos:Position, t:Type, ?children:Type):TagArgs {
+  static function makeArgs(pos:Position, name:String, t:Type, ?children:Type):TagArgs {
     function anon(anon:AnonType, t, lift:Bool, children:Type) {
-      var fields = [for (f in anon.fields) f.name => f];
+      var fields = new Map(),
+          aliases = new Map();
+          
+      for (f in anon.fields) {
+        
+        fields[f.name] = f;
+
+        for (tag in f.meta.extract(':hxx'))
+          for (expr in tag.params)
+            aliases[expr.getName().sure()] = f.name;
+
+      }
       
       var childrenAreAttribute = fields.exists('children');
       
@@ -486,13 +482,16 @@ class Generator {
         if (children == null) 
           children = fields['children'].type;
         else 
-          pos.error('tag requires child list and children attribute');
+          pos.error('$name cannot have both child list and children attribute');
       }
-      return 
-        if (children == null)
-          JustAttributes(fields, t);
-        else
-          Full(fields, t, children, childrenAreAttribute);
+
+      return {
+        aliases: aliases,
+        fields: fields,
+        fieldsType: t,
+        childrenAreAttribute: childrenAreAttribute,
+        children: children,
+      }
     }    
 
     return 
@@ -500,8 +499,7 @@ class Generator {
         case TAnonymous(a):
           anon(a.get(), t, false, children);
         default:
-          if (children != null) throw 'assert';
-          PlainArg(t);
+          pos.error('First argument of $name must be an anonymous object for it to be usable as tag');
       }
   }
 
@@ -558,7 +556,7 @@ class Generator {
         }
       return {
         create: create, 
-        args: makeArgs(pos, attr, children), 
+        args: makeArgs(pos, name, attr, children), 
         name: name,
       };
     }
@@ -594,7 +592,7 @@ class Generator {
     function add(name, type)
       localTags[name] = {
         var ret = null;
-        function (pos) {
+        function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
           if (ret == null) 
             ret = tagDeclaration(name, pos, type);
           return ret;
@@ -646,16 +644,18 @@ class Generator {
 
 }
 
-enum TagArgs {
-  PlainArg(t:Type);
-  JustAttributes(fields:Map<String, ClassField>, fieldsType:Type);
-  Full(fields:Map<String, ClassField>, fieldsType:Type, children:Type, childrenAreAttribute:Bool);
+typedef TagArgs = {
+  var aliases(default, never):Map<String, String>;
+  var fields(default, never):Map<String, ClassField>;
+  var fieldsType(default, never):Type;
+  var children(default, never):Type;
+  var childrenAreAttribute(default, never):Bool;
 }
 
 typedef Tag = {
+  var name(default, never):String;
   var create(default, never):TagCreate;
   var args(default, never):TagArgs;
-  var name(default, never):String;
 }
 
 @:enum abstract TagCreate(String) to String {
