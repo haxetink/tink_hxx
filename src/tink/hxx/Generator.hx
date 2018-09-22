@@ -288,12 +288,15 @@ class Generator {
     };    
   }
 
-  function getTag(name:StringAt):Tag 
+  static function getTagFrom(localTags:Map<String, Position->Tag>, name:StringAt):Tag 
     return (switch localTags[name.value] {
       case null: 
         localTags[name.value] = tagDeclaration.bind(name.value, _, name.value.resolve(name.pos).typeof().sure());
       case get: get;
     })(name.pos);
+
+  function getTag(name:StringAt):Tag 
+    return getTagFrom(localTags, name);
 
   function isOnlyChild(t:Type) 
     return !Context.unify(Context.typeof(macro []), t);
@@ -528,11 +531,11 @@ class Generator {
 
       return [for (f in e.typeof().sure().getFields().sure())
         if (f.isPublic) switch f.kind {
-          case FMethod(MethMacro): continue; 
+          case FMethod(MethMacro): continue; //TODO: consider treating these as opaque tags
           case FMethod(_): 
             new Named(
               f.name, 
-              tagDeclaration('$name.${f.name}', f.pos, f.type)
+              tagDeclaration('$name.${f.name}', f.pos, f.type, f.meta.extract(':voidTag').length > 0)
             );
           default: continue;
         }
@@ -540,7 +543,7 @@ class Generator {
     }
   }
 
-  static public function tagDeclaration(name:String, pos:Position, type:Type):Tag {
+  static public function tagDeclaration(name:String, pos:Position, type:Type, ?isVoid:Bool):Tag {
 
     function mk(args, create):Tag {
       TFun(args, null);//force inference
@@ -554,10 +557,15 @@ class Generator {
             a;
           default: pos.error('Function $name is not suitable as a hxx tag because it must have 1 or 2 arguments, but has ${args.length} instead');
         }
+
+      var args = makeArgs(pos, name, attr, children);
+      if (isVoid && args.children != null)
+        pos.error('Tag declared void, but has children');
       return {
         create: create, 
-        args: makeArgs(pos, name, attr, children), 
+        args: args, 
         name: name,
+        isVoid: isVoid,
       };
     }
 
@@ -639,9 +647,22 @@ class Generator {
   function later(e:Void->Expr) 
     return withTags.bind(localTags, e).bounce();
 
-  public function root(root:Children):Expr 
-    return withTags(getLocalTags(), function () return onlyChild.bind(root).scoped());
+  public function createContext():GeneratorContext {
+    var tags = getLocalTags();
+    return {
+      isVoid: function (name) return getTagFrom(tags, name).isVoid,
+      generateRoot: function (root:Children) return withTags(tags, function () return onlyChild.bind(root).scoped()),
+    }
+  }
 
+  public function root(root:Children):Expr 
+    return createContext().generateRoot(root);
+
+}
+
+typedef GeneratorContext = {
+  function isVoid(name:StringAt):Bool;
+  function generateRoot(root:Children):Expr;
 }
 
 typedef TagArgs = {
@@ -656,6 +677,7 @@ typedef Tag = {
   var name(default, never):String;
   var create(default, never):TagCreate;
   var args(default, never):TagArgs;
+  var isVoid(default, never):Bool;
 }
 
 @:enum abstract TagCreate(String) to String {

@@ -17,7 +17,7 @@ typedef ParserConfig = {
   ?fragment:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
-  ?isVoid:String->Bool,
+  ?isVoid:StringAt->Bool,
   //?interceptTag:String->Option<StringAt->Expr>, <--- consider adding this back
 }
 
@@ -51,7 +51,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   var fileName:String;
   var offset:Int;
   var config:ParserConfig;
-  var isVoid:String->Bool;
+  var isVoid:StringAt->Bool;
   var createParser:ParserSource->Parser;
 
   function new(setup:ParserSource, createParser, ?config:ParserConfig) {
@@ -215,12 +215,17 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       var r = parseAttributes();
       hasChildren = !r.selfClosing;
       attrs = r.attributes;
+      if (isVoid(name)) {
+        if (!r.selfClosing)
+          name.pos.warning('Consider using a self-closing <${name.value}/> instead of void syntax for better portability.');
+        hasChildren = false;
+      }
     }
-    
+
     return CNode({
       name: if (fragment) { value: config.fragment, pos: name.pos } else name,
       attributes: attrs, 
-      children: if (hasChildren && !isVoid(name.value)) parseChildren(name.value) else null
+      children: if (hasChildren) parseChildren(name.value) else null
     });
   });
   
@@ -277,8 +282,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
                 tagName() + expectHere('>');
             if (found != closing)
               die(
-                if (isVoid(found))
-                  'invalid closing tag for void element <$found>'
+                if (isVoid(withPos(found)))
+                  '</$found> is illegal because <$found> is a void tag'
                 else
                   'found </$found> but expected </$closing>', 
                 found.start...found.end
