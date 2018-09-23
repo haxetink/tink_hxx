@@ -89,10 +89,12 @@ class Generator {
                   return switch Context.typeExpr(macro @:pos(value.pos) function (event:$evt) $value) {
                     case typed = { expr: TFunction(f) }:
                       Context.storeTypedExpr(
-                        switch Context.followWithAbstracts(f.expr.t) {
+                        switch Context.follow(f.expr.t) {
                           case TFun(_, _): f.expr;
-                          default: 
-                          typed;
+                          case TDynamic(null): value.reject('Cannot use `Dynamic` as callback');
+                          case found: 
+                            if (Context.unify(found, t)) f.expr;
+                            else typed;
                         }
                       );
                     case v: throw "assert";
