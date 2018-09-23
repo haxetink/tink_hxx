@@ -99,7 +99,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       #end
 
   function parseExpr(source:String, pos) {
-    source = ~/\/\*.*?\*\//g.replace(source, '');
+    source = ~/\/\*[\s\S]*?\*\//g.replace(source, '');
     if (source.trim().length == 0) return macro @:pos(pos) null;
 
     return
