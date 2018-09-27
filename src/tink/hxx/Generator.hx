@@ -153,7 +153,7 @@ class Generator {
         children = tag.args.children,
         fields = tag.args.fields,
         fieldsType = tag.args.fieldsType,
-        childrenAreAttribute = false;
+        childrenAreAttribute = tag.args.childrenAreAttribute;
 
     var tagName = {
       value: tag.name,
