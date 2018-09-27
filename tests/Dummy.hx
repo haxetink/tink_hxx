@@ -58,7 +58,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
           e, 
           {
             defaultExtension: 'hxx',
-            isVoid: function (s) return switch s {
+            isVoid: function (s) return switch s.value {
               case 'img': true;
               default: false;
             }
