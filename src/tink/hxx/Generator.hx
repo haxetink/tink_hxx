@@ -609,15 +609,16 @@ class Generator {
 
   function getLocalTags() {
     var localTags = new Map();
-    function add(name, type)
-      localTags[name] = {
-        var ret = null;
-        function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
-          if (ret == null) 
-            ret = tagDeclaration(name, pos, type);
-          return ret;
+    function add(name:String, type)
+      if (name.charAt(0) != '_')//seems reasonable
+        localTags[name] = {
+          var ret = null;
+          function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
+            if (ret == null) 
+              ret = tagDeclaration(name, pos, type);
+            return ret;
+          }
         }
-      }
     var vars = Context.getLocalVars();
     for (name in vars.keys())
       add(name, vars[name]);
@@ -631,10 +632,8 @@ class Generator {
 
         if (fields.exists(method) || method == 'new') 
           for (f in fields) 
-            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic))) {
-              var name = f.name;
-              add(name, (macro @:pos(f.pos) this.$name).typeof().sure());
-            }
+            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic))) 
+              add(f.name, f.type);
         for (f in statics)
           add(f.name, f.type);
 
