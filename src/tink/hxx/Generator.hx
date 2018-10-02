@@ -145,8 +145,6 @@ class Generator {
   function plain(name:StringAt, create:TagCreate, arg:Expr, pos:Position)
     return invoke(name, create, [arg], pos);
 
-  static var SUGGESTIONS = ~/ \(Suggestions?: .*\)$/;
-
   function tag(n:Node, tag:Tag, pos:Position) {
 
     var aliases = tag.args.aliases,
@@ -225,14 +223,7 @@ class Generator {
         splats,
         function (name) return switch fields[name] {
           case null: 
-            
-            var suggestions = 
-              switch (macro (null:$attrType).$name).typeof() {
-                case Failure(SUGGESTIONS.match(_.message) => true):
-                  SUGGESTIONS.matched(0);
-                default: '';
-              }
-            Failure(new Error('<${n.name.value}> has no attribute $name$suggestions'));
+            Failure(new Error('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}'));
           case f: Success(Some((f:FieldInfo)));
         },
         function (name) return switch aliases[name] {
