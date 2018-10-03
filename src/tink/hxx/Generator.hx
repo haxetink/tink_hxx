@@ -31,21 +31,51 @@ class Generator {
       if (c == null) null;
       else switch normalize(c.value) {
         case []: noChildren(c.pos);
-        // case [v]:
         case v: [for (c in v) child(c, flatten)].toBlock(c.pos);
       }
 
   function noChildren(pos)
     return macro @:pos(pos) null;
 
-  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>) {
+  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
     switch custom {
       case []:
       default:
-        var pos = custom[0].name.pos;
-        attrs = attrs.concat([
-          makeAttribute({ value: 'attributes', pos: pos }, EObjectDecl([for (a in custom) { field: a.name.value, expr: a.value }]).at(pos)) 
-        ]);
+        
+        var used = [for (i in 0...custom.length) false];
+
+        function extract(r:EReg) {
+          var ret = [];
+          for (i in 0...custom.length)
+            if (!used[i]) {
+              var c = custom[i];
+              if (r.match(c.name.value)) {
+                used[i] = true;
+                ret.push(c);
+              }
+            }
+          return ret;
+        }
+
+        for (r in customRules)
+          switch extract(r.filter) {
+            case []:
+            case custom:
+              switch r.group {
+                case Some(name):
+                  var pos = custom[0].name.pos;
+                  attrs = attrs.concat([
+                    makeAttribute({ value: name, pos: pos }, EObjectDecl([for (a in custom) { field: a.name.value, expr: a.value }]).at(pos).as(r.type)) 
+                  ]);
+                case None:
+                  attrs = attrs.concat([for (c in custom) makeAttribute(c.name, c.value.as(r.type))]);
+              }
+          }
+
+        switch used.indexOf(false) {
+          case -1: 
+          case custom[_].name => n: n.pos.error('invalid custom attribute ${n.value}');
+        }
     }
 
     if (childrenAreAttribute)
@@ -57,6 +87,7 @@ class Generator {
           children = None;
         default:
       }
+
     return {
       attrs: attrs,
       children: children, 
@@ -67,7 +98,7 @@ class Generator {
     return {
       name: switch name.value {
         case 'class': 'className';
-        case 'for': 'htmlFor';
+        case 'for': 'htmlFor';//consider moving this out into the spec
         case v: v;
       },
       pos: name.pos,
@@ -213,7 +244,7 @@ class Generator {
       case null: None;
       case v: 
         Some(makeChildren(v, children, true));
-    }, fields);
+    }, fields, tag.args.custom);
 
     var attrType = fieldsType.toComplex();
 
@@ -223,7 +254,10 @@ class Generator {
         splats,
         function (name) return switch fields[name] {
           case null: 
-            Failure(new Error('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}'));
+            if (name.indexOf('-') == -1)
+              Failure(new Error('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}'));
+            else
+              Success(None);
           case f: Success(Some((f:FieldInfo)));
         },
         function (name) return switch aliases[name] {
@@ -468,9 +502,10 @@ class Generator {
     }  
 
   static function makeArgs(pos:Position, name:String, t:Type, ?children:Type):TagArgs {
-    function anon(anon:AnonType, t, lift:Bool, children:Type) {
+    function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs {
       var fields = new Map(),
-          aliases = new Map();
+          aliases = new Map(), 
+          custom:Array<CustomAttr> = [];
           
       for (f in anon.fields) {
         
@@ -480,6 +515,17 @@ class Generator {
           for (expr in tag.params)
             aliases[expr.getName().sure()] = f.name;
 
+        for (tag in f.meta.extract(':hxxCustomAttributes'))
+          for (expr in tag.params)
+            switch expr.expr {
+              case EConst(CRegexp(pat, opt)):
+                custom.push({
+                  type: f.type.toComplex(),
+                  group: if (f.name == '') None else Some(f.name),
+                  filter: new EReg(pat, opt),
+                });
+              default: expr.reject('regex expected');
+            }
       }
       
       var childrenAreAttribute = fields.exists('children');
@@ -497,6 +543,7 @@ class Generator {
         fieldsType: t,
         childrenAreAttribute: childrenAreAttribute,
         children: children,
+        custom: custom,
       }
     }    
 
@@ -673,6 +720,13 @@ typedef TagArgs = {
   var fieldsType(default, never):Type;
   var children(default, never):Type;
   var childrenAreAttribute(default, never):Bool;
+  var custom(default, never):Array<CustomAttr>;
+}
+
+typedef CustomAttr = {
+  var filter(default, never):EReg;
+  var group(default, never):Option<String>;
+  var type(default, never):ComplexType;
 }
 
 typedef Tag = {
