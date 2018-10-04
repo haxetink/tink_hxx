@@ -1,5 +1,5 @@
 -lib tink_stringly
 -lib deep_equal
--lib hx3compat
+-lib tink_unittest
 -cp tests
 -main RunTests
