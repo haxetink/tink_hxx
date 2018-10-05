@@ -1,6 +1,16 @@
 {
 	"name": "tink_hxx",
-	"license": "MIT",
+	"classPath": "src",
+	"dependencies": {
+		"tink_anon": "",
+		"tink_parse": ""
+	},
+	"url": "https://github.com/haxetink/tink_hxx/",
+	"contributors": [
+		"back2dos"
+	],
+	"version": "0.18.0",
+	"releasenote": "Make support for custom arguments configurable.",
 	"tags": [
 		"tink",
 		"hxx",
@@ -10,15 +20,5 @@
 		"template",
 		"cross"
 	],
-	"classPath": "src",
-	"contributors": [
-		"back2dos"
-	],
-	"releasenote": "Allow comment expressions and dollar in identifiers.",
-	"version": "0.17.0",
-	"url": "https://github.com/haxetink/tink_hxx/",
-	"dependencies": {
-		"tink_parse": "",
-		"tink_anon": ""
-	}
+	"license": "MIT"
 }
