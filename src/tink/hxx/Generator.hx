@@ -74,7 +74,9 @@ class Generator {
 
         switch used.indexOf(false) {
           case -1: 
-          case custom[_].name => n: n.pos.error('invalid custom attribute ${n.value}');
+          case i:
+            var n = custom[i].name;
+            n.pos.error('invalid custom attribute ${n.value}');
         }
     }
 
