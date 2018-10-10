@@ -65,10 +65,10 @@ class Generator {
                 case Some(name):
                   var pos = custom[0].name.pos;
                   attrs = attrs.concat([
-                    makeAttribute({ value: name, pos: pos }, EObjectDecl([for (a in custom) { field: a.name.value, expr: a.value }]).at(pos).as(r.type)) 
+                    makeAttribute({ value: name, pos: pos }, EObjectDecl([for (a in custom) ({ field: a.name.value, expr: a.value, quotes: Quoted }:ObjectField)]).at(pos).as(r.type)) 
                   ]);
                 case None:
-                  attrs = attrs.concat([for (c in custom) makeAttribute(c.name, c.value.as(r.type))]);
+                  attrs = attrs.concat([for (c in custom) makeAttribute(c.name, c.value.as(r.type), Quoted)]);
               }
           }
 
@@ -96,7 +96,7 @@ class Generator {
     }
   }
 
-  function makeAttribute(name:StringAt, value:Expr):Part
+  function makeAttribute(name:StringAt, value:Expr, ?quotes):Part
     return {
       name: switch name.value {
         case 'class': 'className';
@@ -104,6 +104,7 @@ class Generator {
         case v: v;
       },
       pos: name.pos,
+      quotes: quotes,
       getValue: function (expected:Option<Type>) 
         return 
           switch expected {
