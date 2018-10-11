@@ -227,6 +227,7 @@ class Generator {
       ret;
     }
     var childList = n.children;
+    
     if (children == null && childList != null) {
       for (c in n.children.value)
         switch c.value {
@@ -328,15 +329,18 @@ class Generator {
     };    
   }
 
-  static function getTagFrom(localTags:Map<String, Position->Tag>, name:StringAt):Tag 
-    return (switch localTags[name.value] {
+  static function getTagFrom(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
+    return switch localTags[name.value] {
       case null: 
-        localTags[name.value] = tagDeclaration.bind(name.value, _, name.value.resolve(name.pos).typeof().sure());
-      case get: get;
-    })(name.pos);
+        switch name.value.resolve(name.pos).typeof() {
+          case Success(t): Success((localTags[name.value] = tagDeclaration.bind(name.value, _, t))(name.pos));
+          case Failure(e): Failure(e);
+        }
+      case get: Success(get(name.pos));
+    }
 
   function getTag(name:StringAt):Tag 
-    return getTagFrom(localTags, name);
+    return getTagFrom(localTags, name).sure();
 
   function isOnlyChild(t:Type) 
     return !Context.unify(Context.typeof(macro []), t);
@@ -702,7 +706,7 @@ class Generator {
   public function createContext():GeneratorContext {
     var tags = getLocalTags();
     return {
-      isVoid: function (name) return getTagFrom(tags, name).isVoid,
+      isVoid: function (name) return getTagFrom(tags, name).match(Success({ isVoid: true })),
       generateRoot: function (root:Children) return withTags(tags, function () return onlyChild.bind(root).scoped()),
     }
   }
