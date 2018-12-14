@@ -21,9 +21,8 @@ env:
   - HAXE_VERSION=latest
   
 install:
-  - npm i -g lix
+  - npm install
   - lix install haxe $HAXE_VERSION
-  - lix download
 
 script:
   - lix run travix interp

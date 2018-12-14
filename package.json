@@ -1,7 +1,8 @@
 {
   "name": "tink_hxx",
   "scripts": {
-    "test": "lix run travix node"
+    "test": "lix run travix node",
+    "postinstall": "lix download"
   },
   "dependencies": {
     "lix": "=15.3.2"
