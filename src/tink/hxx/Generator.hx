@@ -96,6 +96,14 @@ class Generator {
     }
   }
 
+  static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>)
+    return switch r.get().meta.extract(':fromHxx') {
+      case []: None;
+      case [{ params: [e] }]: Some(e);
+      case [v]: v.pos.error('@:fromHxx must have exactly one argument');
+      case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
+    }
+
   function makeAttribute(name:StringAt, value:Expr, ?quotes):Part
     return {
       name: switch name.value {
@@ -108,7 +116,7 @@ class Generator {
       getValue: function (expected:Option<Type>) 
         return 
           switch expected {
-            case Some(_.reduce() => t):
+            case Some(t):
               function liftCallback(eventType:Type) 
                 return later(function () {
                   while (true) switch value {
@@ -134,7 +142,7 @@ class Generator {
                     case v: throw "assert";
                   }
                 });
-              switch t {
+              switch t.reduce() {
                 case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
                   liftCallback(evt);
                 case TFun([{ t: evt }], _.getID() => 'Void'):
@@ -147,7 +155,21 @@ class Generator {
                       if (typed.t.reduce().match(TFun(_, _))) body;
                       else macro @:pos(value.pos) function () $body;
                   });
-                default: value;
+                default:
+                  var ret = null;
+                  while (ret == null) {
+                    switch t {
+                      case TAbstract(getCustomTransformer(_) => Some(e), _),
+                           TInst(getCustomTransformer(_) => Some(e), _),
+                           TEnum(getCustomTransformer(_) => Some(e), _),
+                           TType(getCustomTransformer(_) => Some(e), _):
+                        ret = macro @:pos(e.pos) $e($value);
+                      case TType(_, _) | TLazy(_): t = t.reduce(true);
+                      default:
+                        ret = value;
+                    }
+                  }
+                  ret;
               }
             default: 
               value;

@@ -106,6 +106,14 @@ class RunTests {
     
     return asserts.done();
   }
+
+  public function customCast() {
+    function table(attr:{ foo: Foo })
+      return attr.foo;
+
+    asserts.assert('Foo(blargh)' == Plain.hxx('<table foo="blargh" />').toString());
+    return asserts.done();
+  }
   
   static function main() {
     
