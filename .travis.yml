@@ -22,6 +22,7 @@ env:
   
 install:
   - npm install
+  - npm install lix -g # apparently PATH gets lost further below
   - lix install haxe $HAXE_VERSION
 
 script:
