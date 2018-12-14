@@ -90,6 +90,7 @@ class RunTests {
       <div>
         <for {i in 0...5}>
           <switch $i>
+            <!-- <case {whatever} -->
             <case {0}>
               <zero />
             <case {1}>
