@@ -1,4 +1,4 @@
-@:fromHxx(Foo.parse)
+@:fromHxx(transform = Foo.parse)
 class Foo {
   var s:String;
   function new(s)
