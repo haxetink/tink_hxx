@@ -1,0 +1,9 @@
+{
+  "name": "tink_hxx",
+  "scripts": {
+    "test": "lix run travix node"
+  },
+  "dependencies": {
+    "lix": "=15.3.2"
+  }
+}
