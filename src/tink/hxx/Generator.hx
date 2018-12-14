@@ -99,10 +99,98 @@ class Generator {
   static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>)
     return switch r.get().meta.extract(':fromHxx') {
       case []: None;
-      case [{ params: [e] }]: Some(e);
-      case [v]: v.pos.error('@:fromHxx must have exactly one argument');
+      case [{ params: params }]: 
+        
+        var basicType = null,
+            transform = null;
+        
+        for (p in params)
+          switch p {
+            case macro basicType = $e: basicType = e;
+            case macro transform = $e: transform = e;
+            case macro $e = $_: e.reject('unknown option ${e.toString()}');
+            default: p.reject('should be `<name> = <option>`');
+          }
+
+        Some({ basicType: basicType, transform: transform });
+
       case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
     }
+
+  function functionSugar(value:Expr, t:Type) {
+    function liftCallback(eventType:Type) 
+      return later(function () {
+        while (true) switch value {
+          case macro ($v): value = v;
+          default: break;
+        }
+        if (value.expr.match(EFunction(_, _)))
+          return value;
+
+        var evt = eventType.toComplex();
+
+        return switch Context.typeExpr(macro @:pos(value.pos) function (event:$evt) $value) {
+          case typed = { expr: TFunction(f) }:
+            Context.storeTypedExpr(
+              switch Context.follow(f.expr.t) {
+                case TFun(_, _): f.expr;
+                case TDynamic(null): value.reject('Cannot use `Dynamic` as callback');
+                case found: 
+                  if (Context.unify(found, t)) f.expr;
+                  else typed;
+              }
+            );
+          case v: throw "assert";
+        }
+      });
+    return switch t.reduce() {
+      case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
+        liftCallback(evt);
+      case TFun([{ t: evt }], _.getID() => 'Void'):
+        liftCallback(evt);
+      case TFun([], _.getID() => 'Void'):
+        later(function () {
+          var typed = Context.typeExpr(value);
+          var body = Context.storeTypedExpr(typed);
+          return 
+            if (typed.t.reduce().match(TFun(_, _))) body;
+            else macro @:pos(value.pos) function () $body;
+        });
+      default: value;
+    }    
+  }
+
+  function applyCustomRules(value:Expr, t:Type) {
+    var ret = null;
+
+    while (ret == null) {
+      switch t {
+        case TAbstract(getCustomTransformer(_) => Some(r), _),
+              TInst(getCustomTransformer(_) => Some(r), _),
+              TEnum(getCustomTransformer(_) => Some(r), _),
+              TType(getCustomTransformer(_) => Some(r), _):
+          
+          if (r.basicType != null) {
+            var ct = t.toComplex();
+            value = applyCustomRules(value, r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure());
+          }
+
+          ret = switch r.transform {
+            case null: value;
+            case e: macro @:pos(e.pos) $e($value);
+          }
+
+        case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _): 
+          
+          t = t.reduce(true);
+        
+        default:
+          
+          ret = functionSugar(value, t);
+      }
+    }
+    return ret;    
+  }
 
   function makeAttribute(name:StringAt, value:Expr, ?quotes):Part
     return {
@@ -117,60 +205,7 @@ class Generator {
         return 
           switch expected {
             case Some(t):
-              function liftCallback(eventType:Type) 
-                return later(function () {
-                  while (true) switch value {
-                    case macro ($v): value = v;
-                    default: break;
-                  }
-                  if (value.expr.match(EFunction(_, _)))
-                    return value;
-
-                  var evt = eventType.toComplex();
-
-                  return switch Context.typeExpr(macro @:pos(value.pos) function (event:$evt) $value) {
-                    case typed = { expr: TFunction(f) }:
-                      Context.storeTypedExpr(
-                        switch Context.follow(f.expr.t) {
-                          case TFun(_, _): f.expr;
-                          case TDynamic(null): value.reject('Cannot use `Dynamic` as callback');
-                          case found: 
-                            if (Context.unify(found, t)) f.expr;
-                            else typed;
-                        }
-                      );
-                    case v: throw "assert";
-                  }
-                });
-              switch t.reduce() {
-                case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
-                  liftCallback(evt);
-                case TFun([{ t: evt }], _.getID() => 'Void'):
-                  liftCallback(evt);
-                case TFun([], _.getID() => 'Void'):
-                  later(function () {
-                    var typed = Context.typeExpr(value);
-                    var body = Context.storeTypedExpr(typed);
-                    return 
-                      if (typed.t.reduce().match(TFun(_, _))) body;
-                      else macro @:pos(value.pos) function () $body;
-                  });
-                default:
-                  var ret = null;
-                  while (ret == null) {
-                    switch t {
-                      case TAbstract(getCustomTransformer(_) => Some(e), _),
-                           TInst(getCustomTransformer(_) => Some(e), _),
-                           TEnum(getCustomTransformer(_) => Some(e), _),
-                           TType(getCustomTransformer(_) => Some(e), _):
-                        ret = macro @:pos(e.pos) $e($value);
-                      case TType(_, _) | TLazy(_): t = t.reduce(true);
-                      default:
-                        ret = value;
-                    }
-                  }
-                  ret;
-              }
+              applyCustomRules(value, t);
             default: 
               value;
           }
@@ -735,6 +770,8 @@ class Generator {
 
   public function root(root:Children):Expr 
     return createContext().generateRoot(root);
+
+  static public var current(default, never):Generator;
 
 }
 
