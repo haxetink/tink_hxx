@@ -271,7 +271,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       switch first(["${", "$", "{", "<"], text) {
         case Success("<"):
           if (allowHere('!--')) 
-            upto('-->', true);            
+            upto('-->', true).sure();
           else if (allowHere('!'))
             die('Invalid comment or unsupported processing instruction');
           else if (allowHere('/')) {
@@ -460,8 +460,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return 
       new haxe.macro.Expr.Error(message, pos);
   
-  override function doSkipIgnored() 
+  override function doSkipIgnored() {
     doReadWhile(WHITE);
+    if (allowHere('<!--')) upto('-->', true).sure();
+  }
 
   public function parseRootNode() {
     skipIgnored();

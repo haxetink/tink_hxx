@@ -21,9 +21,9 @@ env:
   - HAXE_VERSION=latest
   
 install:
-  - npm i -g lix
+  - npm install
+  - npm install lix -g # apparently PATH gets lost further below
   - lix install haxe $HAXE_VERSION
-  - lix download
 
 script:
   - lix run travix interp

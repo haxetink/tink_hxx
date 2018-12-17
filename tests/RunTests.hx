@@ -90,6 +90,7 @@ class RunTests {
       <div>
         <for {i in 0...5}>
           <switch $i>
+            <!-- <case {whatever} -->
             <case {0}>
               <zero />
             <case {1}>
@@ -103,6 +104,14 @@ class RunTests {
       </div>
     ').format());
     
+    return asserts.done();
+  }
+
+  public function customCast() {
+    function table(attr:{ foo: Foo })
+      return attr.foo;
+
+    asserts.assert('Foo(blargh)' == Plain.hxx('<table foo="blargh" />').toString());
     return asserts.done();
   }
   
