@@ -22,17 +22,17 @@ class RunTests {
     
     var numbers = [for (i in 0...100) i];
     
-    // asserts.assert(compare(
-    //   [tag('div', {}, [for (i in 0...4) tag('button', {}, [i])])],
-    //   dom('
-    //     <div>
-    //       {import "test"}
-    //       {import "test.hxx"}
-    //       {import "./tests/test"}
-    //       {import "./tests/test.hxx"}
-    //     </div>
-    //   ')
-    // ));
+    asserts.assert(compare(
+      tag('div', {}, [for (i in 0...4) tag('button', {}, [i])]),
+      dom('
+        <div>
+          {import "test"}
+          {import "test.hxx"}
+          {import "./tests/test"}
+          {import "./tests/test.hxx"}
+        </div>
+      ')
+    ));
     var foo = tag('foo', { } );
     
     dom('{import "test"}');
