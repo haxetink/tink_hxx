@@ -3,7 +3,7 @@
 
 # HXX = JSX - JS + HX
 
-This library provides a parser for JSX-like syntax in Haxe. To use it, you must write a generator yourself. See [`vdom.VDom.hxx` in js-virtual-dom](https://github.com/back2dos/js-virtual-dom) for an example. Each generator leads to a slightly different flavor of the language. Here you will find all the features available in HXX, but note that every flavor may handle things a bit differently.
+This library provides a parser for JSX-like syntax in Haxe, as well as a generator. The documentation below describes the syntax permitted by the parser and the semantics used by the generator. You may roll your own generator on top of the parsed syntax tree (see `tink.hxx.Node`), in which case other rules apply.
   
 ## Interpolation
 
@@ -11,8 +11,8 @@ Unsurprisingly, you can embed expressions in HXX, either by using JSX like synta
   
 ## Control structures
 
-HXX has support for control structures, unless disabled per `config.noControlStructures` in the parser, in which case `if`, `switch` and `for` will be interpreted as regular tags.
-  
+HXX has support for a few control structures. Their main reason for existence is that implementing a reentrant parser with autocompletion support proved rather problematic in Haxe 3.
+
 ### If
 
 This is what conditionals look like:
@@ -72,10 +72,6 @@ For loops are pretty straight forward:
 </for>
 ```
 
-## Spread
-  
-HXX has the capacity to deal with spreads, e.g. `<someTag {...properties} />`. 
-
 ## Let
 
 You can define variables with `<let>` and access them within the tag.
@@ -87,6 +83,379 @@ You can define variables with `<let>` and access them within the tag.
   </for>
 </let>
 ```
+
+## Tag Semantics
+
+When HXX encounters a (non-keyword) node, it is resolved in the current scope and after that in a global fallback scope (ordinarily the HTML tags are defined here). A node name (i.e. a dot path) may resolve to any of the following:
+
+1. a function
+2. a class or abstract with a static `fromHxx` method.
+3. a class or abstract with a public constructor.
+
+In any case, we have some function (we're considering the constructor a function), that will be called with arguments derived from the attributes and children of the node. It's worth noting that empty attributes are interpreted as `attributeName={true}`.
+
+Regardless of which of the three above categories a function falls into, it must have one of the following three signatures, which determine how it is processed:
+
+1. a single argument that is an anonymous object and has a property named `children`: all attributes are used as properties of the anonymous object and the child nodes are used to populate the children property.
+
+   Let's consider the plain function case:
+
+   ```haxe
+
+   function Window(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+     /* do something fancy */
+   }
+
+   // Please note that it's not important what `VirtualDom` is. 
+   // The example assumes you're using HXX to create some sort of virtual dom structure.
+   
+   // Here's how you'd use that function:
+   hxx('
+     <Window title="Look, I made a window!">
+       <p>In this window I have some super cool content!</p>
+       <button>Not bad!</button>
+       <button>This is lame!</button>
+     </Window>
+   ');
+
+   //And that is roughly equivalent to:
+   Window({ title: "Look, I made a window!" }, [
+     p({}, ["In this window I have some super cool content!"]),
+     button({}, ["Not bad!"]),
+     button({}, ["This is lame!"]),
+   ]);
+   ```
+
+   For the sake of completeness, let's consider the case of a class with a static fromHxx function:
+
+   ```haxe
+   class Window {
+     static public function fromHxx(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+       /* do something fancy */
+     }     
+   }
+
+   // in which case the HXX gets generated as follows:
+
+   Window.fromHxx({ title: "Look, I made a window!" }, [
+     p({}, ["In this window I have some super cool content!"]),
+     button({}, ["Not bad!"]),
+     button({}, ["This is lame!"]),
+   ]);
+   ```
+
+   Or alternatively, we could rely on the constructor:
+
+   ```haxe
+   class Window {
+     public function new(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+       /* do something fancy */
+     }     
+   }
+
+   // in which case the HXX gets generated as follows:
+
+   new Window({ title: "Look, I made a window!" }, [
+     p({}, ["In this window I have some super cool content!"]),
+     button({}, ["Not bad!"]),
+     button({}, ["This is lame!"]),
+   ]);   
+   ```
+
+   The choice between plain function, static method and plain constructor will usually be governed by the framework you're using HXX with.
+
+2. exactly two arguments, namely a single argument that is an anonymous object *without* a property named `children` and a second argument: all attributes are used as properties of the anonymous object and the child nodes are used to populate the second argument:
+
+   ```haxe
+   // slightly different signature:
+   function Window(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
+     /* do something fancy */
+   }
+
+   // This time, let's make the title more fancy:
+   hxx('
+     <Window title=${hxx('Look, I made a <strong>window</strong>!')}>
+       Whatever ...
+     </Window>
+   ');
+
+   // Which winds up like so:
+   Window({ title: hxx('Look, I made a <strong>window</strong>!') }, [
+     "Whatever ..."
+   ]);
+   ```
+
+3. a single argument that is an anonymous object *without* a property named `children`: all attributes and child nodes are used to populate the properties of that anonymous object. You may have noticed that in the example before, making a complex title was relatively awkward. This notation is meant for the case where you wish to pass more complex content as arguments without much ASCII art. You can also think of it as *named children* as opposed to the previous notation, where all children are just put together without differentiation. The notation is called:
+
+### Complex attributes
+
+Going back to the example above, we could do the following:
+
+```haxe
+// slightly different signature:
+function Window(attr:{ title:VirtualDom, content:VirtualDom }):VirtualDom {
+  /* do something fancy */
+}
+
+// This time, let's make the title more fancy:
+hxx('
+  <Window>
+    <title>
+      Look, I made a <strong>window</strong>!
+    </title>
+    <content>
+      <p>In this window I have some super cool content!</p>
+      <button>Not bad!</button>
+      <button>This is lame!</button>      
+    </content>
+  </Window>
+');
+
+// And it will be transformed to the following Haxe code:
+Window({ 
+  title: [
+    'Look, I made a ',
+    strong({}, ['window']),
+    '!',
+  ],
+  content: [
+    p({}, ["In this window I have some super cool content!"]),
+    button({}, ["Not bad!"]),
+    button({}, ["This is lame!"]),
+  ]
+]);
+```
+
+Not relying on complex attributes, you could write this:
+
+```haxe
+hxx('  
+  <Window
+    title=${hxx('
+      Look, I made a <strong>window</strong>!
+    ')}
+    content=${hxx('
+      <p>In this window I have some super cool content!</p>
+      <button>Not bad!</button>
+      <button>This is lame!</button>      
+    ')}
+  />
+');
+```
+
+It is fully up to you to decide which notation you find easier to read.
+
+#### Complex function attributes
+
+If a complex attribute is expects a function, then a little extra sugar is applied. Consider the following contrived list rendering utility:
+
+```haxe
+function List<T>({ data:Array<T>, render:T->VirtualDom}):VirtualDom
+  return hxx('
+    <ul>
+      <for ${item in data}>
+        <li>{render(item)}</li>
+      </for>
+    </ul>
+  ');
+```
+
+You can specify a function as a complex argument and thus purely as a tag like so:
+
+1. By declaring the function's arguments as empty attributes, e.g.
+
+   ```haxe
+   hxx('
+     <List data={cities}>
+       <render city>
+         <h1>{city.name} <small>(city.country)</small></h1>
+         <p>
+           Population: {city.population}
+         </p>
+       </render>
+     </List>
+   ');
+
+   // this translates to:
+
+   List({
+     data: cities,
+     render: function (city) return [
+       h1({}, [city.name, ' ', small({}, [city.country])])
+       p1({}, ['Population: ', city.population])
+     ]
+   });
+   ```
+
+2. If there is only one argument which you leave unnamed, then it gets interpreted in a special way:
+
+   1. if the argument is an object, its properties become directly accessible from the function body, e.g.:
+
+      ```haxe
+      hxx('
+        <List data={cities}>
+          <render>
+            <h1>{name} <small>(country)</small></h1>
+            <p>
+              Population: {population}
+            </p>
+          </render>
+        </List>
+      ');
+
+      // this translates to:
+
+      List({
+        data: cities,
+        render: function (__data__) {
+
+          var name = __data__.name,
+              country = __data__.country,
+              populatoin = __data__.population;
+
+          return [
+            h1({}, [name, ' ', small({}, [country])])
+            p1({}, ['Population: ', population])
+          ]
+        }
+      });  
+      ```
+
+   2. The argument becomes the implicit switch target in the function body. This is particularly useful for enums. Let's take an example from the manual:
+
+      ```haxe
+      enum Color {
+        Red;
+        Green;
+        Blue;
+        Rgb(r:Int, g:Int, b:Int);
+      }
+
+      // Now let's render a list of such colors:
+
+      hxx('
+        <List data={colors}>
+          <render>
+            <switch>
+              <case {Red}> 
+                red
+              <case {Green}> 
+                green
+              <case {Blue}> 
+                blue
+              <case {Rgb(_, _, _)}>
+                mixed color
+            </switch>
+          </render>
+        </List>
+      ');
+
+      // this is equivalent to
+
+      List({
+        data: cities,
+        render: function (__data__) return switch __data__ {
+          case Red:
+            'red'
+          case Green:
+            'green'
+          case Blue:
+            'blue'
+          case Rgb(_, _, _):
+            'mixed color'
+        }
+      });        
+      ```
+
+      Nothing is to stop you from writing `<render color><switch {color}> ... </switch></render>` if you find it easier to read. The syntax exists merely to avoid forcing you to pick names for a value that you intend to decompose anyway.
+
+## Spread operator `...`
+
+HXX supports the spread operator in various places, to tackle the kind of problems that the [ES6 spread operator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) addresses [in JSX in particular](https://reactjs.org/docs/jsx-in-depth.html#spread-attributes).
+
+### Attribute Spread
+  
+The spread operator can be used for attributes, e.g. `<someTag {...properties} />`. In this case it works very similarly to its JSX counterpart, but it is backed by [tink_anon's merging](https://github.com/haxetink/tink_anon#merge), which does the object composition at compile time.
+
+There rules are as follows:
+
+- any explicit attribute is used as is
+- for any object that is spread onto a tag, all attributes that do not have a value yet are "extracted" from that object, if it is known to define them (at compile time)
+- any attributes that were neither explicitly declared or extracted from a spread operation are reported as missing, unless they're optional.
+
+Let's slightly expand the `Window` example above:
+
+```haxe
+function Window(attr:{ title:VirtualDom, content:VirtualDom, ?modal:Bool }):VirtualDom {
+  /* do something fancy */
+}
+
+var fancy = {
+  title: 'fancy window',
+}
+hxx('<Window {...fancy} modal />');//will fail saying that `content` is missing
+hxx('<Window {...fancy} content="Yeah!" />');
+var boring = {
+  title: 'boring window',
+  content: 'this is sooooooo boring',
+}
+hxx('<Window {...boring} {...fancy} />');//will take both `title` and `content` from `boring`, because it comes first
+hxx('<Window {...fancy} {...boring} />');//will take `title` from `fancy` and `content` from `boring`
+hxx('<Window {...fancy} {...boring} title="Important!" />');//will use "Important!" as `title` (because explicit attributes always take precedence) and `content` from `boring`
+```
+
+### Child Spread
+
+Not all structures created from JSX treat arrays of nodes and single nodes alike - for reasons of performance or type safety. Just like Reason ML's JSX flavor, HXX supports child spreads to deal with that. Consider the following example:
+
+```haxe
+var poem = [
+  hxx('<p>Roses are read</p>'),
+  hxx('<p>Violets are blue</p>'),
+];
+
+hxx('
+  <div>
+    <header />
+    {poem}
+    <footer />
+  </div>
+');
+
+// this translates to:
+
+div({}, [
+  header({})
+  poem,
+  footer({})
+])
+```
+
+Now you may notice that the children of the div are an array that is partially double nested (i.e. `[tag, [tag, tag], tag]`). To avoid such mixed nesting and enforce a single level, you can (and usually have to) use the child spread operator:
+
+```haxe
+hxx('
+  <div>
+    <header />
+    {...poem}
+    <footer />
+  </div>
+');
+
+// this is pretty much equivalent to:
+
+hxx('
+  <div>
+    <header />
+    <for {line in poem}>{line}</for>
+    <footer />
+  </div>
+');
+```
+
+The lines are added as children individually and we thus have no array nesting.
+
+### Spreading into `<let>`
 
 You may also use the spread operator with `<let>`. Say we have:
 
@@ -103,15 +472,28 @@ var barObj = {
 
 Then this will work:
 
-```html
-<let {...fooObj} {...barObj} blub="blub">
-  <button onclick={onfoo}>{foo}</button>
-  <button onclick={onbar}>{bar}</button>
-  <button>{blub}</button>
-</let>;
+```haxe
+hxx('
+  <let {...fooObj} {...barObj} blub="blub">
+    <button onclick={onfoo}>{foo}</button>
+    <button onclick={onbar}>{bar}</button>
+    <button>{blub}</button>
+  </let>
+');
 ```
 
-Note that `<let>` is disabled by disabling constrol structures.
+## Implicit function syntax
+
+For attributes that are functions with 0 or 1 argument, you may write the function body directly:
+
+```haxe
+hxx('
+  <button onclick={trace("yeah!")}>Click me!</button>
+  <input type="checkbox" onchange={trace(event.currentTarget.checked)} />
+');
+```
+
+Note that if there's exactly one argument, it will be called "event".
 
 ## Whitespace
 
@@ -135,31 +517,6 @@ Example:
 
 The first version will retain the white space between the two spans, the second one will not.
 
-## Default semantics
-
-**TL;DR:** What is important to know is that if `tink_hxx` is used with default semantics, every tag is transformed either into a function or a constructor call, where the first argument is an anonymous object with attributes (will be `{}` if none were defined), and the second argument is an optional array of child nodes (will not be present, if none were defined). Every tag may be a `.`-separated path, that must reference a class or function in the current scope.
-
-----
-
-To leverage the default semantics, you can simply use these options as a `Generator` (an implict cast will do the rest):
-  
-```haxe
-typedef GeneratorOptions = {
-  ///the type that all child nodes are type checked against.
-  var child(default, null):ComplexType;
-  
-  ///if set, this is where custom attributes are generated to, otherwise raises an error when encountering one.
-  @:optional var customAttributes(default, null):String;
-  
-  ///used to flatten an array of child nodes into a single node.
-  @:optional var flatten(default, null):Expr->Expr;
-}
-```
-
-Ordinary arguments simply wind up as fields on the object being generated. Custom attributes however, i.e. attributes containing a `-` (in accordance to HTML5), are either rejected or if `customAttributes` was defined to `"someName"`, are wrapped in a separate sub-object. This whole concoction is then passed through `tink.hxx.Merge.objects` which applies any attribute spreads (e.g. `{...props}`) while checking for type safety.
-So for example in the latter case `<div id="foo" data-bar="frozzle" {...o1} {...o2}/>` would be generated as `div(tink.hxx.Merge.objects({ id: "foo", someName: { "data-bar": "frozzle" } }, o1, o2))`. 
-
-The second argument is an array containing child nodes. If no child nodes exist, it is not generated. This is to statically ensure that void elements do not get subnodes.
 
 ## Imports
 
