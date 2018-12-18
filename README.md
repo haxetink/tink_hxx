@@ -101,8 +101,7 @@ Regardless of which of the three above categories a function falls into, it must
    Let's consider the plain function case:
 
    ```haxe
-
-   function Window(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+   function Window(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
      /* do something fancy */
    }
 
@@ -119,47 +118,54 @@ Regardless of which of the three above categories a function falls into, it must
    ');
 
    //And that is roughly equivalent to:
-   Window({ title: "Look, I made a window!" }, [
-     p({}, ["In this window I have some super cool content!"]),
-     button({}, ["Not bad!"]),
-     button({}, ["This is lame!"]),
-   ]);
+   Window({ 
+     title: "Look, I made a window!", 
+     children: [
+      p({}, ["In this window I have some super cool content!"]),
+      button({}, ["Not bad!"]),
+      button({}, ["This is lame!"]),
+    ]
+   });
    ```
 
    For the sake of completeness, let's consider the case of a class with a static fromHxx function:
 
    ```haxe
    class Window {
-     static public function fromHxx(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+     static public function fromHxx(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
        /* do something fancy */
      }     
    }
 
    // in which case the HXX gets generated as follows:
-
-   Window.fromHxx({ title: "Look, I made a window!" }, [
-     p({}, ["In this window I have some super cool content!"]),
-     button({}, ["Not bad!"]),
-     button({}, ["This is lame!"]),
-   ]);
+   Window.fromHxx({ 
+     title: "Look, I made a window!", 
+     children: [
+      p({}, ["In this window I have some super cool content!"]),
+      button({}, ["Not bad!"]),
+      button({}, ["This is lame!"]),
+    ]
+   });
    ```
 
    Or alternatively, we could rely on the constructor:
 
    ```haxe
    class Window {
-     public function new(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
+     public function new(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
        /* do something fancy */
      }     
    }
 
    // in which case the HXX gets generated as follows:
-
-   new Window({ title: "Look, I made a window!" }, [
-     p({}, ["In this window I have some super cool content!"]),
-     button({}, ["Not bad!"]),
-     button({}, ["This is lame!"]),
-   ]);   
+   new Window({ 
+     title: "Look, I made a window!", 
+     children: [
+      p({}, ["In this window I have some super cool content!"]),
+      button({}, ["Not bad!"]),
+      button({}, ["This is lame!"]),
+    ]
+   });  
    ```
 
    The choice between plain function, static method and plain constructor will usually be governed by the framework you're using HXX with.
@@ -168,7 +174,7 @@ Regardless of which of the three above categories a function falls into, it must
 
    ```haxe
    // slightly different signature:
-   function Window(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
+   function Window(attr:{ title:VirtualDom }, children:VirtualDom):VirtualDom {
      /* do something fancy */
    }
 
