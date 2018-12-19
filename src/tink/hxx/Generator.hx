@@ -161,37 +161,32 @@ class Generator {
     }    
   }
 
-  function applyCustomRules(value:Expr, t:Type, finalize:Expr->Type->Expr) {
-    var ret = null;
-
-    while (ret == null) {
+  function applyCustomRules(t:Type, getValue:Type->Expr) 
+    return
       switch t {
         case TAbstract(getCustomTransformer(_) => Some(r), _),
-              TInst(getCustomTransformer(_) => Some(r), _),
-              TEnum(getCustomTransformer(_) => Some(r), _),
-              TType(getCustomTransformer(_) => Some(r), _):
+             TInst(getCustomTransformer(_) => Some(r), _),
+             TEnum(getCustomTransformer(_) => Some(r), _),
+             TType(getCustomTransformer(_) => Some(r), _):
           
           if (r.basicType != null) {
             var ct = t.toComplex();
-            value = applyCustomRules(value, r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure(), finalize);
+            t = r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
           }
 
-          ret = switch r.transform {
-            case null: value;
-            case e: macro @:pos(e.pos) $e($value);
+          switch r.transform {
+            case null: getValue(t);
+            case e: macro @:pos(e.pos) $e(${getValue(t)});
           }
 
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _): 
           
-          t = t.reduce(true);
+          applyCustomRules(t.reduce(true), getValue);
         
         default:
           
-          ret = finalize(value, t);
+          getValue(t); 
       }
-    }
-    return ret;    
-  }
 
   function makeAttribute(name:StringAt, value:Expr, ?quotes):Part
     return {
@@ -206,7 +201,7 @@ class Generator {
         return 
           switch expected {
             case Some(t):
-              applyCustomRules(value, t, functionSugar);
+              applyCustomRules(t, functionSugar.bind(value));
             default: 
               value;
           }
@@ -334,13 +329,13 @@ class Generator {
   }
 
   function complexAttribute(n:Node) 
-    return function (t:Option<Type>):Expr {
-      var t = switch t {
-        case Some(t): t;
-        case None: Context.typeof(macro @:pos(n.name.pos) null);
-      }
+    return function (t:Option<Type>):Expr       
       return applyCustomRules(
-        later(function () return switch t {
+        switch t {
+          case Some(t): t;
+          case None: Context.typeof(macro @:pos(n.name.pos) null);
+        },
+        function (t) return switch t {
           case TFun(requiredArgs, ret):
             var declaredArgs = [for (a in n.attributes) switch a {
               case Splat(e): 
@@ -387,11 +382,8 @@ class Generator {
             body.func(args).asExpr();
           default: 
             makeChildren(n.children, t, true);
-        }),
-        t,
-        function (e, t) return e
+        }
       );
-    }
 
   function getTag(name:StringAt):Tag 
     return Tag.resolve(localTags, name).sure();
