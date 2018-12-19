@@ -2,8 +2,8 @@ package tink.hxx;
 
 #if macro
 import haxe.macro.Context;
-import haxe.macro.Expr;
 import haxe.macro.Type;
+import haxe.macro.Expr;
 
 using haxe.macro.Tools;
 using tink.CoreApi;
@@ -149,26 +149,34 @@ using StringTools;
       switch type.reduce() {
         case TFun(args, _): 
           mk(args, Call);
-        case v:
+        default:
+          switch Context.getType(name).reduce() {
+            case TInst(cl, _) | TAbstract(_.get().impl => cl, _) if (cl != null):
+              var cl = cl.get();
 
-          if (Context.defined('display') && v.match(TMono(_.get() => null))) 
-            pos.error('unknown tag $name');
+              var options = [FromHxx, New],
+                  ret = null;
 
-          var options = [FromHxx, New],
-              ret = null;
-          
-          for (kind in options)
-            switch '$name.$kind'.resolve(pos).typeof() {
-              case Success(_.reduce() => TFun(args, _)):
-                ret = mk(args, kind);
-                break;
-              default: 
-            }
+              if (pos.getOutcome(type.getFields()).length == 0) 
+                pos.error('There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.');
+              
+              for (kind in options)
+                switch '$name.$kind'.resolve(pos).typeof() {
+                  case Success(_.reduce() => TFun(args, _)):
+                    ret = mk(args, kind);
+                    break;
+                  default: 
+                }
 
-          if (ret == null) 
-            pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
-          else ret;
-      }
+              if (ret == null) 
+                pos.error('type $name does not define a suitable constructor of static fromHxx method to be used as HXX');
+              else ret;
+            case TMono(_.get() => null) if (Context.defined('display')):
+              pos.error('unknown tag $name');
+            default:
+              pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
+          }
+      }  
   }
 
   static public function extractAllFrom(e:Expr) {
