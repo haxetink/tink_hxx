@@ -391,19 +391,20 @@ class Generator {
   function isOnlyChild(t:Type) 
     return !Context.unify(Context.typeof(macro []), t);
 
-  function makeChildren(c:Children, t:Type, root:Bool) {
-    var ct = t.toComplex();
-    return
-      if (isOnlyChild(t))
-        onlyChild(c, root, ct);
-      else
-        macro @:pos(c.pos) {
-          var $OUT = [];
-          ($i{OUT} : $ct);
-          ${flatten(c)};
-          $i{OUT};
-        }
-  }
+  function makeChildren(c:Children, t:Type, root:Bool) 
+    return applyCustomRules(t, function (t) {
+      var ct = t.toComplex();
+      return
+        if (isOnlyChild(t))
+          onlyChild(c, root, ct);
+        else
+          macro @:pos(c.pos) {
+            var $OUT = [];
+            ($i{OUT} : $ct);
+            ${flatten(c)};
+            $i{OUT};
+          }
+    });
 
   function makeBody(c:Children, t:Type)
     return makeChildren(c, t, true);
