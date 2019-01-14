@@ -164,6 +164,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         selfClosing = false;
 
     while (!allow('>')) {
+      if (allow('//')) {
+        upto('\n');
+        continue;
+      }
+
       if (allow('/')) {
         expect('>');
         selfClosing = true;
