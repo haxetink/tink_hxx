@@ -169,14 +169,17 @@ class Generator {
              TEnum(getCustomTransformer(_) => Some(r), _),
              TType(getCustomTransformer(_) => Some(r), _):
           
-          if (r.basicType != null) {
-            var ct = t.toComplex();
-            t = r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
-          }
+          var ret = 
+            if (r.basicType != null) {
+              var ct = t.toComplex();
+              t = r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
+              applyCustomRules(t, getValue);
+            }
+            else getValue(t);
 
           switch r.transform {
-            case null: getValue(t);
-            case e: macro @:pos(e.pos) $e(${getValue(t)});
+            case null: ret;
+            case e: e.substitute({ _: ret });
           }
 
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _): 
