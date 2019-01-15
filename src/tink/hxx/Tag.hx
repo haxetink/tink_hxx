@@ -110,6 +110,18 @@ using StringTools;
       }
     }    
 
+    var alias = MacroApi.tempName();
+    
+    Context.defineType({//TODO: without this typedef, compile time explodes ... reduce and raise Haxe issue
+      pos: pos,
+      name: alias,
+      pack: ['tink', 'hxx', 'tmp'],
+      fields: [],
+      kind: TDAlias(t.toComplex()),
+    });
+
+    t = Context.getType('tink.hxx.tmp.$alias');
+    
     return 
       switch t.reduce() {
         case TAnonymous(a):
