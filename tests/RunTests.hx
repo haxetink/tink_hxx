@@ -114,6 +114,19 @@ class RunTests {
     asserts.assert('Foo(blargh)' == Plain.hxx('<table foo="blargh" />').toString());
     return asserts.done();
   }
+
+  public function doPaths() {
+    function identity(x)
+      return x;
+
+    var o = { foo: { x: 3, y: 4 }, bar: "yolo", deep: { a: { b: { c: "d" }}}};
+
+    identity(o);
+
+    asserts.assert(compare(o, Plain.hxx('<identity foo.x={3} foo.y={4} bar="yolo" deep.a.b.c="d" />')));
+
+    return asserts.done();    
+  }
   
   static function main() {
     

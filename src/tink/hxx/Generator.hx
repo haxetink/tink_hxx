@@ -271,7 +271,7 @@ class Generator {
           custom.push(new NamedWith(name, value));
       }
       
-      for (a in n.attributes) switch a {
+      for (a in groupDotPaths(n.attributes)) switch a {//not 100% if grouping dot path transformation here is the best place
         case Regular(name, value): set(name, switch value.getString() {
           case Success(s): s.formatString(value.pos);
           default: value;
@@ -487,6 +487,73 @@ class Generator {
 
   function emptyElse()
     return macro null;
+
+  static public function groupDotPaths(attributes:Array<Attribute>) {
+    var hasDot = false;
+
+    for (a in attributes)
+      switch a {
+        case Empty(s) | Regular(s, _):
+          if (s.value.indexOf('.') != -1) {
+            hasDot = true;
+            break;
+          }
+        default:
+      }
+
+    return 
+      if (!hasDot) attributes;
+      else {
+
+        var ret = [],
+            objects = new Map<String, Array<ObjectField>>();
+
+        function add(path:StringAt, value:Expr) {
+
+          var parts = path.value.split('.');
+          var root = parts[0];
+
+          if (!objects.exists(root)) {
+            var fields = [];
+            objects[root] = fields;
+            ret.push(Attribute.Regular({ pos: path.pos, value: root }, EObjectDecl(fields).at(path.pos)));
+          }
+
+          var last = parts.pop(),
+              prefix = '';
+
+          for (p in parts) {
+            
+            var parent = prefix;
+            
+            prefix = switch prefix {
+              case '': p;
+              case v: '$v.$p';
+            }
+
+            if (!objects.exists(prefix)) {
+              objects[prefix] = [];
+
+              if (parent != '') 
+                objects[parent].push({ field: p, expr: EObjectDecl(objects[prefix]).at(path.pos) });
+            }
+          }
+
+          objects[prefix].push({ field: last, expr: value });
+        }
+
+        for (a in attributes)
+          switch a {
+            case Empty(s) if (s.value.indexOf('.') != -1):
+              add(s, macro true);
+            case Regular(s, e) if (s.value.indexOf('.') != -1):
+              add(s, e);
+            default:
+              ret.push(a);
+          }        
+        ret;
+      }
+  }
 
   static public function normalize(children:Array<Child>) 
     return switch children {
