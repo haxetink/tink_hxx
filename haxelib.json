@@ -1,16 +1,6 @@
 {
 	"name": "tink_hxx",
-	"classPath": "src",
-	"dependencies": {
-		"tink_anon": "",
-		"tink_parse": ""
-	},
-	"url": "https://github.com/haxetink/tink_hxx/",
-	"contributors": [
-		"back2dos"
-	],
-	"version": "0.18.0",
-	"releasenote": "Make support for custom arguments configurable.",
+	"license": "MIT",
 	"tags": [
 		"tink",
 		"hxx",
@@ -20,5 +10,15 @@
 		"template",
 		"cross"
 	],
-	"license": "MIT"
+	"classPath": "src",
+	"contributors": [
+		"back2dos"
+	],
+	"releasenote": "Support dot paths in attributes. Refine customization syntax. Allow comments in opening tags.",
+	"version": "0.19.0",
+	"url": "https://github.com/haxetink/tink_hxx/",
+	"dependencies": {
+		"tink_parse": "",
+		"tink_anon": ""
+	}
 }
