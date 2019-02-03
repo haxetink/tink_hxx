@@ -256,6 +256,14 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       value: ret,
     }  
 
+    function handleElse(elseif:Bool) 
+      return
+        switch closing {
+          case 'if': throw new Else(result(), elseif);//TODO: this whole throwing business is probably a bad idea
+          case null: die('dangling else', start ... pos);
+          case v: die('unclosed $v', start ... pos);
+        }
+
     function expr(e:Expr)
       ret.push({
         pos: e.pos,
@@ -308,12 +316,16 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             ret.push(parseSwitch());
           else if (kwd('if')) 
             ret.push(parseIf());
-          else if (kwd('else')) 
-            throw new Else(result(), false);
+          else if (kwd('else'))
+            handleElse(false);
           else if (kwd('elseif')) 
-            throw new Else(result(), true);
+            handleElse(true);
           else if (kwd('case')) 
-            throw new Case(result());
+            switch closing {
+              case 'switch': throw new Case(result());
+              case null: die('dangling case', start ... pos);
+              case v: die('unclosed $v', start ... pos);
+            }
           else 
             ret.push(parseChild());        
           
