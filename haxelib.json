@@ -14,8 +14,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "Support dot paths in attributes. Refine customization syntax. Allow comments in opening tags.",
-	"version": "0.19.0",
+	"releasenote": "Correctly detect dangling else and case.",
+	"version": "0.19.1",
 	"url": "https://github.com/haxetink/tink_hxx/",
 	"dependencies": {
 		"tink_parse": "",
