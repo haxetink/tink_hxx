@@ -51,9 +51,10 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
   @:from static public function int(i:Int):Dummy
     return text(Std.string(i));
   
-  macro static public function dom(e) 
+  macro static public function dom(e) {
+    var gen = new DummyGen();
     return 
-      new DummyGen().root(
+      gen.root(
         tink.hxx.Parser.parseRoot(
           e, 
           {
@@ -61,10 +62,12 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
             isVoid: function (s) return switch s.value {
               case 'img': true;
               default: false;
-            }
+            },
+            treatNested: gen.root
           }
         )
       ); 
+  }
 }
 
 #if macro

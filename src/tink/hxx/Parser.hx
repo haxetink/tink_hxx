@@ -14,6 +14,7 @@ using tink.CoreApi;
 
 typedef ParserConfig = {
   defaultExtension:String,
+  treatNested:Children->Expr,
   ?fragment:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
@@ -35,6 +36,12 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
   }
 
   static public function ofExpr(e:Expr):ParserSource {
+    
+    switch e {
+      case macro @:markup $v: e = v;
+      default:
+    }
+
     var s = e.getString().sure(),
         pos = Context.getPosInfos(e.pos);  
 
@@ -53,14 +60,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   var config:ParserConfig;
   var isVoid:StringAt->Bool;
   var createParser:ParserSource->Parser;
+  var treatNested:Children->Expr;
 
-  function new(setup:ParserSource, createParser, ?config:ParserConfig) {
-
-    if (config == null)
-      config = {
-        defaultExtension: 'hxx',
-        noControlStructures: false,
-      }
+  function new(setup:ParserSource, createParser, config:ParserConfig) {
 
     this.createParser = createParser;
     this.fileName = setup.fileName;
@@ -76,6 +78,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       case null: function (_) return false;
       case v: v;
     }
+
+    this.treatNested = config.treatNested;
   }
   
   function withPos(s:StringSlice, ?transform:String->String):StringAt 
@@ -98,16 +102,23 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         e;
       #end
 
+  function reenter(e:Expr)
+    return switch e {
+      case macro @:markup ${{ expr: EConst(CString(_)) }}: 
+        treatNested(createParser(e).parseRootNode());
+      default: e.map(reenter);
+    }
+
   function parseExpr(source:String, pos) {
     source = ~/\/\*[\s\S]*?\*\//g.replace(source, '');
     if (source.trim().length == 0) return macro @:pos(pos) null;
 
     return
-      processExpr( 
+      reenter(processExpr( 
         try Context.parseInlineString(source, pos)
         catch (e:haxe.macro.Error) throw e
         catch (e:Dynamic) pos.error(e)
-      );
+      ));
   }
 
   function simpleIdent() {
@@ -496,7 +507,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   static public function parseRootWith(e:Expr, createParser:ParserSource->Parser) 
     return createParser(e).parseRootNode(); 
 
-  static public function parseRoot(e:Expr, ?config:ParserConfig) {
+  static public function parseRoot(e:Expr, config:ParserConfig) {
     function create(source:ParserSource):Parser
       return new Parser(source, create, config);
     return parseRootWith(e, create);

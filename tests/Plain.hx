@@ -6,7 +6,8 @@ class Plain {
         defaultExtension: 'hxx', 
         noControlStructures: false, 
         defaultSwitchTarget: macro __data__,
-        isVoid: ctx.isVoid
+        isVoid: ctx.isVoid,
+        treatNested: ctx.generateRoot,
       })
     );
   }

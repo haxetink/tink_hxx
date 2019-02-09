@@ -127,6 +127,20 @@ class RunTests {
 
     return asserts.done();    
   }
+
+  #if haxe4
+  public function inlineMarkup() {
+    var a = [for (i in 0...10) '$i'];
+    function div(attr:{}, ?children:Array<{}>)
+      return children;
+    Plain.hxx(
+      <div>
+        {a.map(x -> <div>{x}</div>)}
+      </div>
+    );
+    return asserts.done();
+  }
+  #end
   
   static function main() {
     
