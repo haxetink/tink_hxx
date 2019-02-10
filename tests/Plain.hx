@@ -1,3 +1,7 @@
+#if macro
+using tink.MacroApi;
+#end
+
 class Plain {
   macro static public function hxx(e) {
     var ctx = new tink.hxx.Generator().createContext();
@@ -7,7 +11,7 @@ class Plain {
         noControlStructures: false, 
         defaultSwitchTarget: macro __data__,
         isVoid: ctx.isVoid,
-        treatNested: ctx.generateRoot,
+        treatNested: function (children) return ctx.generateRoot.bind(children).bounce(),
       })
     );
   }

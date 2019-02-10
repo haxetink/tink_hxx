@@ -275,10 +275,38 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           case v: die('unclosed $v', start ... pos);
         }
 
+    function toChildren(e:Expr):Children
+      return 
+        if (e == null) null 
+        else {
+          pos: e.pos,
+          value: [{ pos: e.pos, value: CExpr(e) }]
+        };
+
     function expr(e:Expr)
       ret.push({
         pos: e.pos,
-        value: CExpr(e),
+        value: switch e.expr {
+          case EFor(head, body): CFor(head, toChildren(body));
+          case EIf(cond, cons, alt): CIf(cond, toChildren(cons), toChildren(alt));
+          case ESwitch(target, cases, dFault): 
+            
+            var cases = [for (c in cases) {
+              guard: c.guard,
+              values: c.values,
+              children: toChildren(c.expr)
+            }];
+
+            if (dFault != null && dFault.expr != null)
+              cases.push({
+                values: [macro _],
+                guard: null,
+                children: toChildren(dFault),
+              });
+
+            CSwitch(target, cases);
+          default: CExpr(e);
+        }
       });    
 
     function text(slice) {
