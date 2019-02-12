@@ -96,7 +96,7 @@ In any case, we have some function (we're considering the constructor a function
 
 Regardless of which of the three above categories a function falls into, it must have one of the following three signatures, which determine how it is processed:
 
-1. a single argument that is an anonymous object and has a property named `children`: all attributes are used as properties of the anonymous object and the child nodes are used to populate the children property.
+1. a single argument that is an anonymous object and has a property named `children`, or marked via `@:child` / `@:children` metadata (having multiple properties meeting this criterium leads to a compiler error): all attributes are used as properties of the anonymous object and the child nodes are used to populate the children property.
 
    Let's consider the plain function case:
 
@@ -128,11 +128,11 @@ Regardless of which of the three above categories a function falls into, it must
    });
    ```
 
-   For the sake of completeness, let's consider the case of a class with a static fromHxx function:
+   For the sake of completeness, let's consider the case of a class with a static `fromHxx` function, although this time we'll make use of the `@:children` metadata:
 
    ```haxe
    class Window {
-     static public function fromHxx(attr:{ title:VirtualDom, children:VirtualDom }):VirtualDom {
+     static public function fromHxx(attr:{ var title:VirtualDom; @:children var content:VirtualDom; }):VirtualDom {
        /* do something fancy */
      }     
    }
@@ -140,7 +140,7 @@ Regardless of which of the three above categories a function falls into, it must
    // in which case the HXX gets generated as follows:
    Window.fromHxx({ 
      title: "Look, I made a window!", 
-     children: [
+     content: [//because content was marked with `@:children`, it is populated with the tag's children
       p({}, ["In this window I have some super cool content!"]),
       button({}, ["Not bad!"]),
       button({}, ["This is lame!"]),
