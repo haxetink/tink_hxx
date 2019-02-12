@@ -9,8 +9,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.20.0",
-	"releasenote": "Support inline markup syntax.",
+	"version": "0.20.1",
+	"releasenote": "Allow specifying children via metadata.",
 	"tags": [
 		"tink",
 		"hxx",
