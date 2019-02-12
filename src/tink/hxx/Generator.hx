@@ -38,7 +38,7 @@ class Generator {
   function noChildren(pos)
     return macro @:pos(pos) null;
 
-  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAreAttribute:Bool, children:Option<Expr>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
+  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAttribute:Null<String>, children:Option<Expr>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
     switch custom {
       case []:
       default:
@@ -81,11 +81,11 @@ class Generator {
         }
     }
 
-    if (childrenAreAttribute)
+    if (childrenAttribute != null)
       switch children {
         case Some(e):
           attrs = attrs.concat([
-            makeAttribute({ value: 'children', pos: e.pos }, e)
+            makeAttribute({ value: childrenAttribute, pos: e.pos }, e)
           ]);
           children = None;
         default:
@@ -241,7 +241,7 @@ class Generator {
         children = tag.args.children,
         fields = tag.args.fields,
         fieldsType = tag.args.fieldsType,
-        childrenAreAttribute = tag.args.childrenAreAttribute;
+        childrenAttribute = tag.args.childrenAttribute;
 
     var tagName = {
       value: tag.name,
@@ -300,7 +300,7 @@ class Generator {
       childList = null;
     }
 
-    var mangled = mangle(attributes, custom, childrenAreAttribute, switch childList {
+    var mangled = mangle(attributes, custom, childrenAttribute, switch childList {
       case null: None;
       case v: 
         Some(makeChildren(v, children, true));

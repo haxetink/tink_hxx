@@ -115,6 +115,14 @@ class RunTests {
     return asserts.done();
   }
 
+  public function childrenAttribute() {
+    function foo(attr:{ @:children var bar:String; })
+      return attr.bar;
+
+    asserts.assert('yohoho' == Plain.hxx('<foo>yohoho</foo>'));
+    return asserts.done();
+  }
+
   public function doPaths() {
     function identity(x)
       return x;

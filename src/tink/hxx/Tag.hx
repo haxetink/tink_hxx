@@ -69,10 +69,21 @@ using StringTools;
       var fields = new Map(),
           aliases = new Map(), 
           custom:Array<CustomAttr> = [];
+
+      var childrenAttr = null;
           
+      function setChildrenAttr(f:ClassField)
+        if (childrenAttr == null)
+          childrenAttr = f;
+        else
+          f.pos.error('only one field may act as children (${childrenAttr.name} already does)');
+
       for (f in anon.fields) {
         
         fields[f.name] = f;
+
+        if (f.meta.has(':children') || f.meta.has(':child'))
+          setChildrenAttr(f);
 
         for (tag in f.meta.extract(':hxx'))
           for (expr in tag.params)
@@ -90,12 +101,17 @@ using StringTools;
               default: expr.reject('regex expected');
             }
       }
+
+      switch fields['children'] {
+        case null:
+        case v: setChildrenAttr(v);
+      }
       
-      var childrenAreAttribute = fields.exists('children');
+      var childrenAreAttribute = childrenAttr != null;
       
       if (childrenAreAttribute) {
         if (children == null) 
-          children = fields['children'].type;
+          children = childrenAttr.type;
         else 
           pos.error('$name cannot have both child list and children attribute');
       }
@@ -104,7 +120,7 @@ using StringTools;
         aliases: aliases,
         fields: fields,
         fieldsType: t,
-        childrenAreAttribute: childrenAreAttribute,
+        childrenAttribute: if (childrenAreAttribute) childrenAttr.name else null,
         children: children,
         custom: custom,
       }
@@ -233,7 +249,7 @@ typedef TagArgs = {
   var fields(default, never):Map<String, ClassField>;
   var fieldsType(default, never):Type;
   var children(default, never):Type;
-  var childrenAreAttribute(default, never):Bool;
+  var childrenAttribute(default, never):Null<String>;
   var custom(default, never):Array<CustomAttr>;
 }
 
