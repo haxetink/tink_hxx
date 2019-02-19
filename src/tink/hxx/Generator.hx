@@ -435,7 +435,9 @@ class Generator {
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          expr: later(flatten.bind(c.children)),//TODO: avoid bouncing here
+          expr: 
+            if (c.children != null) later(flatten.bind(c.children))//TODO: avoid bouncing here
+            else null,
         }], null).at(c.pos);
 
       case CIf(cond, cons, alt): 

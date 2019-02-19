@@ -277,7 +277,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
     function toChildren(e:Expr):Children
       return 
-        if (e == null) null 
+        if (e == null || e.pos == null) null 
         else {
           pos: e.pos,
           value: [{ pos: e.pos, value: CExpr(e) }]
@@ -290,14 +290,14 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           case EFor(head, body): CFor(head, toChildren(body));
           case EIf(cond, cons, alt): CIf(cond, toChildren(cons), toChildren(alt));
           case ESwitch(target, cases, dFault): 
-            
+
             var cases = [for (c in cases) {
               guard: c.guard,
               values: c.values,
               children: toChildren(c.expr)
             }];
 
-            if (dFault != null && dFault.expr != null)
+            if (dFault != null)
               cases.push({
                 values: [macro _],
                 guard: null,
