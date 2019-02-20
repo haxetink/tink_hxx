@@ -37,8 +37,11 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
 
   static public function ofExpr(e:Expr):ParserSource {
     
+    var offset = 1;
     switch e {
-      case macro @:markup $v: e = v;
+      case macro @:markup $v: 
+        e = v;
+        offset = 0;
       default:
     }
 
@@ -47,7 +50,7 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
 
     return ({
       source: s,
-      offset: pos.min + 1, 
+      offset: pos.min + offset, 
       fileName: pos.file,
     }:ParserSourceData);
   }
