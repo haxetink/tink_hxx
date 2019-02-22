@@ -20,9 +20,9 @@ using StringTools;
   static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
     return switch localTags[name.value] {
       case null: 
-        switch name.value.resolve(name.pos).typeof() {
-          case Success(t): Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
-          case Failure(e): Failure(e);
+        switch Context.getLocalVars()[name.value] {
+          case null: name.pos.makeFailure('unknown tag ${name.value}');
+          case t: Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
         }
       case get: Success(get(name.pos));
     }
