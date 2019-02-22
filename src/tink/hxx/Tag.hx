@@ -17,13 +17,16 @@ using StringTools;
   public var args(default, never):TagArgs;
   public var isVoid(default, never):Bool;  
 
-  static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
+  static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt, withLocalVars = true):Outcome<Tag, Error>
     return switch localTags[name.value] {
       case null: 
-        switch Context.getLocalVars()[name.value] {
-          case null: name.pos.makeFailure('unknown tag ${name.value}');
-          case t: Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
-        }
+        if (withLocalVars)
+          switch Context.getLocalVars()[name.value] {
+            case null: name.pos.makeFailure('unknown tag ${name.value}');
+            case t: Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
+          }
+        else 
+          name.pos.makeFailure('unknown tag ${name.value}');
       case get: Success(get(name.pos));
     }
 
