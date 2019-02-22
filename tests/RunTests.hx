@@ -123,7 +123,26 @@ class RunTests {
     return asserts.done();
   }
 
-  public function doPaths() {
+  public function localTags() {
+    
+    function blub(attr:{ function hoho(attr:{ function woooosh(attr:{ foo:Int }):String; }):Array<String>; }) 
+      return attr.hoho({ woooosh: function (o) return [for (i in 0...o.foo) 'x'].join('') });
+
+    var arr = Plain.hxx('
+      <blub>
+        <hoho>
+          <woooosh foo={5} />
+          <woooosh foo={3} />
+        </hoho>
+      </blub>
+    ');
+
+    asserts.assert(arr.join(',') == 'xxxxx,xxx');
+
+    return asserts.done();
+  }
+
+  public function dotPaths() {
     function identity(x)
       return x;
 
