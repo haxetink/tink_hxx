@@ -9,8 +9,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.20.1",
-	"releasenote": "Allow specifying children via metadata.",
+	"version": "0.20.2",
+	"releasenote": "Improve position tracking and diagnostics.",
 	"tags": [
 		"tink",
 		"hxx",
