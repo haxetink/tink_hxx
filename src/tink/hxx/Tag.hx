@@ -17,20 +17,29 @@ using StringTools;
   public var args(default, never):TagArgs;
   public var isVoid(default, never):Bool;  
 
-  static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt, withLocalVars = true):Outcome<Tag, Error>
+  static function startsCapital(s:String)
+    return s.charAt(0).toUpperCase() == s.charAt(0);
+
+  static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
     return switch localTags[name.value] {
       case null: 
-        if (withLocalVars)
-          switch Context.getLocalVars()[name.value] {
-            case null: name.pos.makeFailure('unknown tag <${name.value}>');
-            case t: Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
-          }
-        else 
+
+        var found = Context.getLocalVars()[name.value];
+
+        if (found == null) {
+          var path = name.value.split('.');
+          if (path.length > 1 || startsCapital(path[path.length - 1]))
+            found = Context.typeof(name.value.resolve(name.pos));
+        }
+
+        if (found == null) 
           name.pos.makeFailure('unknown tag <${name.value}>');
+        else 
+          Success((localTags[name.value] = declaration.bind(name.value, _, found))(name.pos));
       case get: Success(get(name.pos));
     }
 
-  static public function getAllInScope(defaults:Lazy<Array<Named<Tag>>>) {
+  static public function getAllInScope(defaults:Lazy<Array<Named<Position->Tag>>>) {
     var localTags = new Map();
     function add(name:String, type)
       if (name.charAt(0) != '_')//seems reasonable
@@ -62,8 +71,33 @@ using StringTools;
 
       default:
     }
+
+    function add(name, f)
+      if (!localTags.exists(name))
+        localTags[name] = f;
+
+    for (i in Context.getLocalImports())
+      switch i {
+        case { mode: IAll, path: path } if (startsCapital(path[path.length - 1].name)):
+          
+          path = path.copy();
+          
+          var e = {
+            var first = path.shift();
+            macro @:pos(first.pos) $i{first.name};
+          }
+
+          for (p in path)
+            e = EField(e, p.name).at(p.pos);
+
+          for (t in extractAllFrom(e).get())
+            add(t.name, t.value);
+        default:
+      }
+
     for (d in defaults.get())
-      localTags[d.name] = function (_) return d.value;
+      if (!localTags.exists(d.name)) 
+        localTags[d.name] = d.value;
     return localTags;
   } 
 
@@ -210,7 +244,7 @@ using StringTools;
       }  
   }
 
-  static public function extractAllFrom(e:Expr) {
+  static public function extractAllFrom(e:Expr):Lazy<Array<Named<Position->Tag>>> {
     return function () {
       var name = {
         
@@ -236,8 +270,15 @@ using StringTools;
           case FMethod(MethMacro): continue; //TODO: consider treating these as opaque tags
           case FMethod(_): 
             new Named(
-              f.name, 
-              declaration('$name.${f.name}', f.pos, f.type, f.meta.extract(':voidTag').length > 0)
+              f.name,{
+                var ret = null;
+                function (pos) {
+                  if (ret == null)
+                    ret = declaration('$name.${f.name}', pos, f.type, f.meta.extract(':voidTag').length > 0);
+                  return ret;
+                } 
+              }
+              
             );
           default: continue;
         }

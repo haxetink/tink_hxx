@@ -16,7 +16,7 @@ using StringTools;
 
 class Generator {
   static inline var OUT = '__r';
-  public var defaults(default, null):Lazy<Array<Named<Tag>>>;
+  public var defaults(default, null):Lazy<Array<Named<Position->Tag>>>;
 
   public function new(?defaults) 
     this.defaults = switch defaults {
