@@ -646,7 +646,7 @@ class Generator {
   public function createContext():GeneratorContext {
     var tags = Tag.getAllInScope(defaults);
     return {
-      isVoid: function (name) return Tag.resolve(tags, name, false).match(Success({ isVoid: true })),
+      isVoid: function (name) return Tag.resolve(tags, name).match(Success({ isVoid: true })),
       generateRoot: function (root:Children) return withTags(tags, function () return onlyChild.bind(root).scoped()),
     }
   }

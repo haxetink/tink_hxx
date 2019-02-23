@@ -22,11 +22,11 @@ using StringTools;
       case null: 
         if (withLocalVars)
           switch Context.getLocalVars()[name.value] {
-            case null: name.pos.makeFailure('unknown tag ${name.value}');
+            case null: name.pos.makeFailure('unknown tag <${name.value}>');
             case t: Success((localTags[name.value] = declaration.bind(name.value, _, t))(name.pos));
           }
         else 
-          name.pos.makeFailure('unknown tag ${name.value}');
+          name.pos.makeFailure('unknown tag <${name.value}>');
       case get: Success(get(name.pos));
     }
 
