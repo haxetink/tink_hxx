@@ -9,8 +9,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.20.3",
-	"releasenote": "Minor fix.",
+	"version": "0.21.0",
+	"releasenote": "Fix and speed up tag resolution.",
 	"tags": [
 		"tink",
 		"hxx",
