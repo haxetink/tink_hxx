@@ -9,8 +9,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.20.2",
-	"releasenote": "Improve position tracking and diagnostics.",
+	"version": "0.20.3",
+	"releasenote": "Minor fix.",
 	"tags": [
 		"tink",
 		"hxx",
