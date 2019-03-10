@@ -265,24 +265,29 @@ using StringTools;
         ret.join('.');
       }
 
-      return [for (f in e.typeof().sure().getFields().sure())
+      var tags = [];
+      for (f in e.typeof().sure().getFields().sure())
         if (f.isPublic) switch f.kind {
           case FMethod(MethMacro): continue; //TODO: consider treating these as opaque tags
           case FMethod(_): 
-            new Named(
-              f.name,{
-                var ret = null;
-                function (pos) {
-                  if (ret == null)
-                    ret = declaration('$name.${f.name}', pos, f.type, f.meta.extract(':voidTag').length > 0);
-                  return ret;
-                } 
-              }
-              
-            );
+            var decl = null;
+            function make(pos) {
+              if (decl == null)
+                decl = declaration('$name.${f.name}', pos, f.type, f.meta.extract(':voidTag').length > 0);
+              return decl;
+            } 
+            
+            function add(name)
+              tags.push(new Named(name, make));
+
+            add(f.name);
+
+            for (m in f.meta.extract(':hxx')) 
+              for (v in m.params) add(v.getString().sure());
+
           default: continue;
         }
-      ];
+      return tags;
     }
   }
 

@@ -497,8 +497,16 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       }
   }
   
-  static var IDENT_START = UPPER || LOWER || '_'.code || '$'.code;
-  static var IDENT_CONTD = IDENT_START || DIGIT || '-'.code || '.'.code;
+  static var IDENT_START = "$:_" || UPPER || LOWER
+    #if tink_parse_unicode 
+      || 0xF8...0x2FF || 0xF8...0x2FF || 0x370...0x37D || 0x37F...0x1FFF ||
+      0x200C...0x200D || 0x2070...0x218F || 0x2C00...0x2FEF ||
+      0x3001...0xD7FF || 0xF900...0xFDCF || 0xFDF0...0xFFFD ||
+      0x10000...0xEFFFF
+    #end
+  ;
+
+  static var IDENT_CONTD = IDENT_START || DIGIT || '-.' || 0xB7 || 0x0300...0x036F || 0x203F...0x2040;
   
   function ident(here = false) 
     return 

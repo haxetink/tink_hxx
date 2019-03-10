@@ -4,6 +4,7 @@ import deepequal.DeepEqual.*;
 import tink.unit.*;
 import tink.testrunner.*;
 import Dummy.*;
+import Tags.*;
 
 @:asserts
 class RunTests {
@@ -156,10 +157,14 @@ class RunTests {
   }
 
   #if haxe4
+  
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
-    function div(attr:{}, ?children:Array<{}>)
-      return children;
+    
+    #if tink_parse_unicode
+    NonSense.showOff();
+    #end
+
     Plain.hxx(
       <div>
         {a.map(x -> <div>{x}</div>)}
