@@ -3,8 +3,7 @@ package tink.hxx;
 import haxe.macro.Expr;
 import tink.hxx.Node;
 import tink.parse.Char.*;
-import tink.parse.ParserBase;
-import tink.parse.StringSlice;
+import tink.parse.*;
 import haxe.macro.Context;
 
 using StringTools;
@@ -59,7 +58,6 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
 class Parser extends ParserBase<Position, haxe.macro.Error> { 
   
   var fileName:String;
-  var offset:Int;
   var config:ParserConfig;
   var isVoid:StringAt->Bool;
   var createParser:ParserSource->Parser;
@@ -68,11 +66,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   function new(setup:ParserSource, createParser, config:ParserConfig) {
 
     this.createParser = createParser;
-    this.fileName = setup.fileName;
-    this.offset = setup.offset;
     this.config = config;
 
-    super(setup.source);
+    super(setup.source, Reporter.expr(this.fileName = setup.fileName), setup.offset);
     
     function get<T>(o:{ var isVoid(default, null):T; }) 
       return o.isVoid;
@@ -87,7 +83,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   
   function withPos(s:StringSlice, ?transform:String->String):StringAt 
     return {
-      pos: doMakePos(s.start, s.end),
+      pos: makePos(s.start, s.end),
       value: switch transform {
         case null: s.toString();
         case v: v(s);
@@ -510,14 +506,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         Success(readWhile(IDENT_CONTD));
       else 
         Failure(makeError('Identifier expected', makePos(pos)));  
-  
-  override function doMakePos(from:Int, to:Int):Position
-    return 
-      #if macro Context.makePosition #end ({ min: from + offset, max: to + offset, file: fileName });
-  
-  override function makeError(message:String, pos:Position)
-    return 
-      new haxe.macro.Expr.Error(message, pos);
   
   override function doSkipIgnored() {
     doReadWhile(WHITE);
