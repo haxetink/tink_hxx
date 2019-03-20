@@ -461,16 +461,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return ret;
   });
 
-  function located<T>(f:Void->T):Located<T> {
-    //TODO: this is not unlike super.read
-    var start = pos;
-    var ret = f();
-    return {
-      value: ret,
-      pos: makePos(start, pos)
-    }
-  }
-
   function onlyChild(c:Child):Children
     return { pos: c.pos, value: [c] };
   
