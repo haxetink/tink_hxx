@@ -16,6 +16,7 @@ using StringTools;
   public var create(default, never):TagCreate;
   public var args(default, never):TagArgs;
   public var isVoid(default, never):Bool;  
+  public var hxxMeta(default, never):Map<String, Type>;
 
   static function startsCapital(s:String)
     return s.charAt(0).toUpperCase() == s.charAt(0);
@@ -186,24 +187,56 @@ using StringTools;
 
   static public function declaration(name:String, pos:Position, type:Type, ?isVoid:Bool):Tag {
 
-    function mk(args, create):Tag {
+    function mk(args, create, callee):Tag {
       TFun(args, null);//force inference
+
       var children = null;
-      var attr = 
-        switch args {
-          case [{ t: a }, { t: c }]:
-            children = c;
-            a;
-          case [{ t: a }]:
-            a;
-          default: pos.error('Function $name is not suitable as a hxx tag because it must have 1 or 2 arguments, but has ${args.length} instead');
+      
+      function reject(reason):Dynamic
+        return pos.error('Function $callee is not suitable as a hxx tag, because $reason');
+      
+      args = args.copy();
+
+      switch args[args.length - 1] {
+        case null:
+          reject('accepts no arguments');
+        case nfo if (nfo.t.getID(false) == 'haxe.PosInfos'):
+          if (!nfo.opt)
+            reject('trailing argument ${nfo.name}:haxe.PosInfos is not optional');
+          args.pop();
+        default:
+      }
+
+      var hxxMeta = 
+        switch args[0] {
+          case { name: 'hxxMeta', t: t }:
+            args.shift();
+            [for (f in t.getFields().sure()) f.name => f.type];
+          default: new Map();
         }
 
+      var attr = switch args.shift() {
+        case null: reject('accepts no attributes');
+        case a: a.t;
+      }
+
+      switch args {
+        case []:
+        case [a]: children = a.t;
+        default: reject('defines too many arguments');
+      }
+      
       var args = makeArgs(pos, name, attr, children);
+      for (keys in [args.aliases.keys(), args.fields.keys()])
+        for (k in keys)
+          if (hxxMeta.exists(k))
+            reject('conflict between hxx meta argument $k and attribute key');
+
       if (isVoid && args.children != null)
         pos.error('Tag declared void, but has children');
       return {
         create: create, 
+        hxxMeta: hxxMeta,
         args: args, 
         name: name,
         isVoid: isVoid,
@@ -213,7 +246,7 @@ using StringTools;
     return
       switch type.reduce() {
         case TFun(args, _): 
-          mk(args, Call);
+          mk(args, Call, name);
         default:
           switch Context.getType(name).reduce() {
             case TInst(cl, _) | TAbstract(_.get().impl => cl, _) if (cl != null):
@@ -228,7 +261,7 @@ using StringTools;
               for (kind in options)
                 switch '$name.$kind'.resolve(pos).typeof() {
                   case Success(_.reduce() => TFun(args, _)):
-                    ret = mk(args, kind);
+                    ret = mk(args, kind, '$name.$kind');
                     break;
                   default: 
                 }
@@ -294,7 +327,7 @@ using StringTools;
 }
 
 typedef TagArgs = {
-  var aliases(default, never):Map<String, String>;
+  var aliases(default, never):Map<String, String>;//TODO: consider putting aliases straight into fields
   var fields(default, never):Map<String, ClassField>;
   var fieldsType(default, never):Type;
   var children(default, never):Type;

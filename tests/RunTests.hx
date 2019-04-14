@@ -166,7 +166,7 @@ class RunTests {
     #end
 
     Plain.hxx(
-      <div>
+      <div key="5">
         {a.map(x -> <div>{x}</div>)}
       </div>
     );

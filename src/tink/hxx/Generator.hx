@@ -210,14 +210,6 @@ class Generator {
           }
     };
 
-  function instantiate(name:StringAt, create:TagCreate, key:Option<Expr>, attr:Expr, children:Option<Expr>)
-    return switch key {
-      case None:
-        invoke(name, create, [attr].concat(children.toArray()), name.pos);
-      case Some(key):
-        key.reject('key handling not available in this HXX flavor');        
-    }
-
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
     return 
       switch create {
@@ -231,9 +223,6 @@ class Generator {
 
   function node(n:Node, pos:Position) 
     return tag(n, getTag(n.name), pos);
-
-  function plain(name:StringAt, create:TagCreate, arg:Expr, pos:Position)
-    return invoke(name, create, [arg], pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
 
@@ -255,21 +244,25 @@ class Generator {
       }
     ];
     
-    var key = None,
-        custom = [];
+    var custom = [],
+        specials = new Map();
     
     var attributes = {
       
       var ret:Array<Part> = [];
 
-      function set(name, value) {
-        if (name.value == 'key' && !fields.exists('key')) 
-          key = Some(value);
-        else if (name.value.indexOf('-') == -1) 
-          ret.push(makeAttribute(name, value));
-        else 
-          custom.push(new NamedWith(name, value));
-      }
+      function set(name:StringAt, value) 
+        switch name.value {
+          case special if (tag.hxxMeta.exists(special)):
+            specials[special] = switch specials[special] {
+              case null: value;
+              default: name.pos.error('duplicate $special');
+            }
+          case _.indexOf('-') => -1:
+           ret.push(makeAttribute(name, value));
+          default:
+            custom.push(new NamedWith(name, value));
+        }
       
       for (a in groupDotPaths(n.attributes)) switch a {//not 100% if grouping dot path transformation here is the best place
         case Regular(name, value): set(name, switch value.getString() {
@@ -328,7 +321,14 @@ class Generator {
         attrType
       );
 
-    return instantiate(tagName, tag.create, key, obj, mangled.children);
+    var args = mangled.children.toArray();
+
+    args.unshift(obj);
+
+    if (tag.hxxMeta.keys().hasNext())
+      args.unshift(EObjectDecl([for (k in specials.keys()) { field: k, expr: specials[k] }]).at(n.name.pos));
+
+    return invoke(tagName, tag.create, args, tagName.pos);
   }
 
   function complexAttribute(n:Node) 
