@@ -375,6 +375,18 @@ You can specify a function as a complex argument and thus purely as a tag like s
 
       Nothing is to stop you from writing `<render color><switch {color}> ... </switch></render>` if you find it easier to read. The syntax exists merely to avoid forcing you to pick names for a value that you intend to decompose anyway.
 
+### Additional arguments
+
+All of the three call styles above support two additional arguments:
+
+#### Leading hxx meta arguments
+
+You may have an additional leading argument named `hxxMeta` at the beginning of the argument list. It should be either of anonymous type, or expecting a `@:structInit` class (otherwise you may get some pretty weird compiler errors). Attributes in hxx will populate this argument. It is particularly useful for properties like `ref` and `key`, which are not actually applied to the view being created, but rather give the code that constructs the view more fine grained control. If a field exist on both the `hxxMeta` argument and the attributes, an error is produced at compile time.
+
+#### Trailing position information
+
+You may also have an additional optional argument of type `haxe.PosInfos` at the end of the argument list, which is populated using standard haxe semantics.
+
 ## Spread operator `...`
 
 HXX supports the spread operator in various places, to tackle the kind of problems that the [ES6 spread operator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) addresses [in JSX in particular](https://reactjs.org/docs/jsx-in-depth.html#spread-attributes).
