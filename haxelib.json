@@ -1,6 +1,17 @@
 {
 	"name": "tink_hxx",
-	"license": "MIT",
+	"classPath": "src",
+	"dependencies": {
+		"tink_anon": "",
+		"tink_parse": "",
+		"html-entities": ""
+	},
+	"url": "https://github.com/haxetink/tink_hxx/",
+	"contributors": [
+		"back2dos"
+	],
+	"version": "0.22.1",
+	"releasenote": "Treat all common entities in parser.",
 	"tags": [
 		"tink",
 		"hxx",
@@ -10,16 +21,5 @@
 		"template",
 		"cross"
 	],
-	"classPath": "src",
-	"contributors": [
-		"back2dos"
-	],
-	"releasenote": "Adjust to latest tink_parse and add support for additional tag arguments.",
-	"version": "0.22.0",
-	"url": "https://github.com/haxetink/tink_hxx/",
-	"dependencies": {
-		"tink_parse": "",
-		"tink_anon": "",
-		"html-entities": ""
-	}
+	"license": "MIT"
 }
