@@ -143,6 +143,12 @@ class RunTests {
     return asserts.done();
   }
 
+  public function entities() {
+    Plain.hxx('<div>Hello, &world;</div>');
+    asserts.assert(Plain.hxx('&gt;') == '>');
+    return asserts.done();
+  }
+
   public function dotPaths() {
     function identity(x)
       return x;

@@ -81,12 +81,12 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     this.treatNested = config.treatNested;
   }
   
-  function withPos(s:StringSlice, ?transform:String->String):StringAt 
+  function withPos(s:StringSlice, ?transform:Int->String->String):StringAt 
     return {
       pos: makePos(s.start, s.end),
       value: switch transform {
         case null: s.toString();
-        case v: v(s);
+        case v: v(s.start, s);
       },
     }
   
@@ -251,7 +251,35 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         expect('"');
         '"';
       }
-    return  withPos(upto(end).sure(), StringTools.htmlUnescape);
+    return withPos(upto(end).sure(), replaceEntities);
+  }
+
+  function replaceEntities(offset:Int, value:String)
+  {
+    if (value.indexOf('&') < 0)
+      return value;
+
+    var reEntity = ~/&[a-z0-9]+;/gi,
+        result = '',
+        index = 0;
+
+    while (reEntity.match(value.substr(index)))
+    {
+      var left = reEntity.matchedLeft(),
+          entity = reEntity.matched(0);
+
+      index += left.length + entity.length;
+      result += left + switch html.Entities.all[entity] {
+        case null:
+          makePos(offset + index - entity.length, offset + index).warning('unknown entity $entity');
+          entity;
+        case e: e;
+      };
+    }
+
+    result += value.substr(index);
+    //TODO: consider giving warnings for isolated `&`
+    return result;
   }
 
   function tagName() 
@@ -309,7 +337,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       });    
 
     function text(slice) {
-      var text = withPos(slice, StringTools.htmlUnescape);
+      var text = withPos(slice, replaceEntities);
       if (text.value.length > 0)
         ret.push({
           pos: text.pos,

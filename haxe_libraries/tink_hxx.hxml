@@ -2,5 +2,5 @@
 -cp src
 
 -lib tink_parse
--lib tink_macro
+-lib html-entities
 -lib tink_anon
