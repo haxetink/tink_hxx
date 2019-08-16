@@ -188,7 +188,8 @@ using StringTools;
   static public function declaration(name:String, pos:Position, type:Type, ?isVoid:Bool):Tag {
 
     function mk(args, create, callee):Tag {
-      TFun(args, null);//force inference
+      if (false)
+        TFun(args, null);//force inference
 
       var children = null;
       
@@ -255,20 +256,33 @@ using StringTools;
               var options = [FromHxx, New],
                   ret = null;
 
-              if (pos.getOutcome(type.getFields()).length == 0) 
-                pos.error('There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.');
-              
-              for (kind in options)
-                switch '$name.$kind'.resolve(pos).typeof() {
-                  case Success(_.reduce() => TFun(args, _)):
-                    ret = mk(args, kind, '$name.$kind');
-                    break;
-                  default: 
+              function hasCtor() 
+                return switch cl.kind {
+                  case KAbstractImpl(_): cl.findField('_new', true) != null;
+                  default: cl.constructor.get() != null;
                 }
 
-              if (ret == null) 
-                pos.error('type $name does not define a suitable constructor of static fromHxx method to be used as HXX');
-              else ret;
+              function yield(kind:TagCreate)
+                return
+                  switch '$name.$kind'.resolve(pos).typeof() {
+                    case Success(_.reduce() => TFun(args, _)):
+                      mk(args, kind, '$name.$kind');
+                    default:
+                      throw 'assert';
+                  }
+
+              if (cl.findField('fromHxx', true) != null) 
+                yield(FromHxx);
+              else if (hasCtor())
+                yield(New);
+              else
+                pos.error(
+                  if (cl.statics.get().length + cl.fields.get().length == 0)
+                    'There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.'
+                  else
+                    'type $name does not define a suitable constructor of static fromHxx method to be used as HXX'
+                );
+
             case TMono(_.get() => null) if (Context.defined('display')):
               pos.error('unknown tag $name');
             default:
