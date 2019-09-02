@@ -164,7 +164,7 @@ using StringTools;
       }
     }    
 
-    var alias = MacroApi.tempName();
+    var alias = 'Attr' + MacroApi.tempName();
     
     Context.defineType({//TODO: without this typedef, compile time explodes ... reduce and raise Haxe issue
       pos: pos,
