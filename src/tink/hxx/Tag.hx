@@ -12,11 +12,11 @@ using StringTools;
 
 @:structInit class Tag {
 
-  public var name(default, never):String;
-  public var create(default, never):TagCreate;
-  public var args(default, never):TagArgs;
-  public var isVoid(default, never):Bool;  
-  public var hxxMeta(default, never):Map<String, Type>;
+  public final name:String;
+  public final create:TagCreate;
+  public final args:TagArgs;
+  public final isVoid:Bool;  
+  public final hxxMeta:Map<String, Type>;
 
   static function startsCapital(s:String)
     return s.charAt(0).toUpperCase() == s.charAt(0);
