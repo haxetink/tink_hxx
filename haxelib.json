@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.22.1",
-	"releasenote": "Treat all common entities in parser.",
+	"version": "0.22.2",
+	"releasenote": "Fix compilation and diagnostics",
 	"tags": [
 		"tink",
 		"hxx",
