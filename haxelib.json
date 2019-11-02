@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.22.2",
-	"releasenote": "Fix compilation and diagnostics",
+	"version": "0.22.3",
+	"releasenote": "Support haxe 4 nightly.",
 	"tags": [
 		"tink",
 		"hxx",
