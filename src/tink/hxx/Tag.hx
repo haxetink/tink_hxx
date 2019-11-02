@@ -12,18 +12,18 @@ using StringTools;
 
 @:structInit class Tag {
 
-  public var name(default, never):String;
-  public var create(default, never):TagCreate;
-  public var args(default, never):TagArgs;
-  public var isVoid(default, never):Bool;  
-  public var hxxMeta(default, never):Map<String, Type>;
+  public var name(default, null):String;
+  public var create(default, null):TagCreate;
+  public var args(default, null):TagArgs;
+  public var isVoid(default, null):Bool;
+  public var hxxMeta(default, null):Map<String, Type>;
 
   static function startsCapital(s:String)
     return s.charAt(0).toUpperCase() == s.charAt(0);
 
   static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
     return switch localTags[name.value] {
-      case null: 
+      case null:
 
         var found = Context.getLocalVars()[name.value];
 
@@ -33,9 +33,9 @@ using StringTools;
             found = Context.typeof(name.value.resolve(name.pos));
         }
 
-        if (found == null) 
+        if (found == null)
           name.pos.makeFailure('unknown tag <${name.value}>');
-        else 
+        else
           Success((localTags[name.value] = declaration.bind(name.value, _, found))(name.pos));
       case get: Success(get(name.pos));
     }
@@ -47,7 +47,7 @@ using StringTools;
         localTags[name] = {
           var ret = null;
           function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
-            if (ret == null) 
+            if (ret == null)
               ret = declaration(name, pos, type);
             return ret;
           }
@@ -63,9 +63,9 @@ using StringTools;
         var fields = [for (f in v.getFields(false).sure()) f.name => f],
             method = Context.getLocalMethod();
 
-        if (fields.exists(method) || method == 'new') 
-          for (f in fields) 
-            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic))) 
+        if (fields.exists(method) || method == 'new')
+          for (f in fields)
+            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic)))
               add(f.name, f.type);
         for (f in statics)
           add(f.name, f.type);
@@ -80,9 +80,9 @@ using StringTools;
     for (i in Context.getLocalImports())
       switch i {
         case { mode: IAll, path: path } if (startsCapital(path[path.length - 1].name)):
-          
+
           path = path.copy();
-          
+
           var e = {
             var first = path.shift();
             macro @:pos(first.pos) $i{first.name};
@@ -97,19 +97,19 @@ using StringTools;
       }
 
     for (d in defaults.get())
-      if (!localTags.exists(d.name)) 
+      if (!localTags.exists(d.name))
         localTags[d.name] = d.value;
     return localTags;
-  } 
+  }
 
   static function makeArgs(pos:Position, name:String, t:Type, ?children:Type):TagArgs {
     function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs {
       var fields = new Map(),
-          aliases = new Map(), 
+          aliases = new Map(),
           custom:Array<CustomAttr> = [];
 
       var childrenAttr = null;
-          
+
       function setChildrenAttr(f:ClassField)
         if (childrenAttr == null)
           childrenAttr = f;
@@ -117,7 +117,7 @@ using StringTools;
           f.pos.error('only one field may act as children (${childrenAttr.name} already does)');
 
       for (f in anon.fields) {
-        
+
         fields[f.name] = f;
 
         if (f.meta.has(':children') || f.meta.has(':child'))
@@ -144,13 +144,13 @@ using StringTools;
         case null:
         case v: setChildrenAttr(v);
       }
-      
+
       var childrenAreAttribute = childrenAttr != null;
-      
+
       if (childrenAreAttribute) {
-        if (children == null) 
+        if (children == null)
           children = childrenAttr.type;
-        else 
+        else
           pos.error('$name cannot have both child list and children attribute');
       }
 
@@ -162,10 +162,10 @@ using StringTools;
         children: children,
         custom: custom,
       }
-    }    
+    }
 
     var alias = 'Attr' + MacroApi.tempName();
-    
+
     Context.defineType({//TODO: without this typedef, compile time explodes ... reduce and raise Haxe issue
       pos: pos,
       name: alias,
@@ -175,8 +175,8 @@ using StringTools;
     });
 
     t = Context.getType('tink.hxx.tmp.$alias');
-    
-    return 
+
+    return
       switch t.reduce() {
         case TAnonymous(a):
           anon(a.get(), t, false, children);
@@ -192,10 +192,10 @@ using StringTools;
         TFun(args, null);//force inference
 
       var children = null;
-      
+
       function reject(reason):Dynamic
         return pos.error('Function $callee is not suitable as a hxx tag, because $reason');
-      
+
       args = args.copy();
 
       switch args[args.length - 1] {
@@ -208,7 +208,7 @@ using StringTools;
         default:
       }
 
-      var hxxMeta = 
+      var hxxMeta =
         switch args[0] {
           case { name: 'hxxMeta', t: t }:
             args.shift();
@@ -226,7 +226,7 @@ using StringTools;
         case [a]: children = a.t;
         default: reject('defines too many arguments');
       }
-      
+
       var args = makeArgs(pos, name, attr, children);
       for (keys in [args.aliases.keys(), args.fields.keys()])
         for (k in keys)
@@ -236,9 +236,9 @@ using StringTools;
       if (isVoid && args.children != null)
         pos.error('Tag declared void, but has children');
       return {
-        create: create, 
+        create: create,
         hxxMeta: hxxMeta,
-        args: args, 
+        args: args,
         name: name,
         isVoid: isVoid,
       };
@@ -246,7 +246,7 @@ using StringTools;
 
     return
       switch type.reduce() {
-        case TFun(args, _): 
+        case TFun(args, _):
           mk(args, Call, name);
         default:
           switch Context.getType(name).reduce() {
@@ -256,7 +256,7 @@ using StringTools;
               var options = [FromHxx, New],
                   ret = null;
 
-              function hasCtor() 
+              function hasCtor()
                 return switch cl.kind {
                   case KAbstractImpl(_): cl.findField('_new', true) != null;
                   default: cl.constructor.get() != null;
@@ -271,7 +271,7 @@ using StringTools;
                       throw 'assert';
                   }
 
-              if (cl.findField('fromHxx', true) != null) 
+              if (cl.findField('fromHxx', true) != null)
                 yield(FromHxx);
               else if (hasCtor())
                 yield(New);
@@ -288,16 +288,16 @@ using StringTools;
             default:
               pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
           }
-      }  
+      }
   }
 
   static public function extractAllFrom(e:Expr):Lazy<Array<Named<Position->Tag>>> {
     return function () {
       var name = {
-        
+
         var cur = e,
             ret = [];
-        
+
         while (true) switch cur {
           case macro @:pos(p) $v.$name:
             cur = v;
@@ -316,20 +316,20 @@ using StringTools;
       for (f in e.typeof().sure().getFields().sure())
         if (f.isPublic) switch f.kind {
           case FMethod(MethMacro): continue; //TODO: consider treating these as opaque tags
-          case FMethod(_): 
+          case FMethod(_):
             var decl = null;
             function make(pos) {
               if (decl == null)
                 decl = declaration('$name.${f.name}', pos, f.type, f.meta.extract(':voidTag').length > 0);
               return decl;
-            } 
-            
+            }
+
             function add(name)
               tags.push(new Named(name, make));
 
             add(f.name);
 
-            for (m in f.meta.extract(':hxx')) 
+            for (m in f.meta.extract(':hxx'))
               for (v in m.params) add(v.getString().sure());
 
           default: continue;
