@@ -164,17 +164,28 @@ using StringTools;
       }
     }
 
-    var alias = 'Attr' + MacroApi.tempName();
+    {//TODO: without this typedeffing, compile time explodes ... reduce and raise Haxe issue
+      var alias = '';
 
-    Context.defineType({//TODO: without this typedef, compile time explodes ... reduce and raise Haxe issue
-      pos: pos,
-      name: alias,
-      pack: ['tink', 'hxx', 'tmp'],
-      fields: [],
-      kind: TDAlias(t.toComplex()),
-    });
+      function get()
+        return Context.getType('tink.hxx.tmp.$alias');
 
-    t = Context.getType('tink.hxx.tmp.$alias');
+      while (true) {
+        alias = 'Attr' + MacroApi.tempName();
+        try get()
+        catch (e:Dynamic) break;
+      }
+
+      Context.defineType({
+        pos: pos,
+        name: alias,
+        pack: ['tink', 'hxx', 'tmp'],
+        fields: [],
+        kind: TDAlias(t.toComplex()),
+      });
+
+      t = get();
+    }
 
     return
       switch t.reduce() {
