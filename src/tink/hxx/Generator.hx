@@ -18,17 +18,17 @@ class Generator {
   static inline var OUT = '__r';
   public var defaults(default, null):Lazy<Array<Named<Position->Tag>>>;
 
-  public function new(?defaults) 
+  public function new(?defaults)
     this.defaults = switch defaults {
       case null: [];
       case v: v;
     }
 
-  function yield(e:Expr) 
+  function yield(e:Expr)
     return macro @:pos(e.pos) $i{OUT}.push($e);
 
-  function flatten(c:Children) 
-    return 
+  function flatten(c:Children)
+    return
       if (c == null) null;
       else switch normalize(c.value) {
         case []: noChildren(c.pos);
@@ -42,7 +42,7 @@ class Generator {
     switch custom {
       case []:
       default:
-        
+
         var used = [for (i in 0...custom.length) false];
 
         function extract(r:EReg) {
@@ -66,7 +66,7 @@ class Generator {
                 case Some(name):
                   var pos = custom[0].name.pos;
                   attrs = attrs.concat([
-                    makeAttribute({ value: name, pos: pos }, EObjectDecl([for (a in custom) ({ field: a.name.value, expr: a.value, quotes: Quoted }:ObjectField)]).at(pos).as(r.type)) 
+                    makeAttribute({ value: name, pos: pos }, EObjectDecl([for (a in custom) ({ field: a.name.value, expr: a.value, quotes: Quoted }:ObjectField)]).at(pos).as(r.type))
                   ]);
                 case None:
                   attrs = attrs.concat([for (c in custom) makeAttribute(c.name, c.value.as(r.type), Quoted)]);
@@ -74,7 +74,7 @@ class Generator {
           }
 
         switch used.indexOf(false) {
-          case -1: 
+          case -1:
           case i:
             var n = custom[i].name;
             n.pos.error('invalid custom attribute ${n.value}');
@@ -93,18 +93,18 @@ class Generator {
 
     return {
       attrs: attrs,
-      children: children, 
+      children: children,
     }
   }
 
   static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>)
     return switch r.get().meta.extract(':fromHxx') {
       case []: None;
-      case [{ params: params }]: 
-        
+      case [{ params: params }]:
+
         var basicType = null,
             transform = null;
-        
+
         for (p in params)
           switch p {
             case macro basicType = $e: basicType = e;
@@ -119,7 +119,7 @@ class Generator {
     }
 
   function functionSugar(value:Expr, t:Type) {
-    function liftCallback(eventType:Type) 
+    function liftCallback(eventType:Type)
       return later(function () {
         while (true) switch value {
           case macro ($v): value = v;
@@ -136,7 +136,7 @@ class Generator {
               switch Context.follow(f.expr.t) {
                 case TFun(_, _): f.expr;
                 case TDynamic(null): value.reject('Cannot use `Dynamic` as callback');
-                case found: 
+                case found:
                   if (Context.unify(found, t)) f.expr;
                   else typed;
               }
@@ -153,23 +153,23 @@ class Generator {
         later(function () {
           var typed = Context.typeExpr(value);
           var body = Context.storeTypedExpr(typed);
-          return 
+          return
             if (typed.t.reduce().match(TFun(_, _))) body;
             else macro @:pos(value.pos) function () $body;
         });
       default: value;
-    }    
+    }
   }
 
-  function applyCustomRules(t:Type, getValue:Type->Expr) 
+  function applyCustomRules(t:Type, getValue:Type->Expr)
     return
       switch t {
         case TAbstract(getCustomTransformer(_) => Some(r), _),
              TInst(getCustomTransformer(_) => Some(r), _),
              TEnum(getCustomTransformer(_) => Some(r), _),
              TType(getCustomTransformer(_) => Some(r), _):
-          
-          var ret = 
+
+          var ret =
             if (r.basicType != null) {
               var ct = t.toComplex();
               t = r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
@@ -182,13 +182,13 @@ class Generator {
             case e: e.substitute({ _: ret });
           }
 
-        case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _): 
-          
+        case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
+
           applyCustomRules(t.reduce(true), getValue);
-        
+
         default:
-          
-          getValue(t); 
+
+          getValue(t);
       }
 
   function makeAttribute(name:StringAt, value:Expr, ?quotes):Part
@@ -200,28 +200,28 @@ class Generator {
       },
       pos: name.pos,
       quotes: quotes,
-      getValue: function (expected:Option<Type>) 
-        return 
+      getValue: function (expected:Option<Type>)
+        return
           switch expected {
             case Some(t):
               applyCustomRules(t, functionSugar.bind(value));
-            default: 
+            default:
               value;
           }
     };
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
-    return 
+    return
       switch create {
         case New:
           name.value.instantiate(args, pos);
         case FromHxx:
           '${name.value}.fromHxx'.resolve(pos).call(args, pos);
         case Call:
-          name.value.resolve(pos).call(args, pos);  
+          name.value.resolve(pos).call(args, pos);
       }
 
-  function node(n:Node, pos:Position) 
+  function node(n:Node, pos:Position)
     return tag(n, getTag(n.name), pos);
 
   function tag(n:Node, tag:Tag, pos:Position) {
@@ -236,22 +236,22 @@ class Generator {
       value: tag.name,
       pos: n.name.pos
     };
-    
+
     var splats = [
       for (a in n.attributes) switch a {
         case Splat(e): e;
         default: continue;
       }
     ];
-    
+
     var custom = [],
         specials = new Map();
-    
+
     var attributes = {
-      
+
       var ret:Array<Part> = [];
 
-      function set(name:StringAt, value) 
+      function set(name:StringAt, value)
         switch name.value {
           case special if (tag.hxxMeta.exists(special)):
             specials[special] = switch specials[special] {
@@ -263,7 +263,7 @@ class Generator {
           default:
             custom.push(new NamedWith(name, value));
         }
-      
+
       for (a in groupDotPaths(n.attributes)) switch a {//not 100% if grouping dot path transformation here is the best place
         case Regular(name, value): set(name, switch value.getString() {
           case Success(s): s.formatString(value.pos);
@@ -276,7 +276,7 @@ class Generator {
       ret;
     }
     var childList = n.children;
-    
+
     if (children == null && childList != null) {
       for (c in n.children.value)
         switch c.value {
@@ -287,7 +287,7 @@ class Generator {
               name: n.name.value,
               getValue: complexAttribute(n),
             });
-          default: 
+          default:
             c.pos.error('Only named tags allowed here');
         }
       childList = null;
@@ -295,18 +295,18 @@ class Generator {
 
     var mangled = mangle(attributes, custom, childrenAttribute, switch childList {
       case null: None;
-      case v: 
+      case v:
         Some(makeChildren(v, children, true));
     }, fields, tag.args.custom);
 
     var attrType = fieldsType.toComplex();
 
-    var obj = 
+    var obj =
       mergeParts(
-        mangled.attrs, 
+        mangled.attrs,
         splats,
         function (name) return switch fields[name] {
-          case null: 
+          case null:
             if (name.indexOf('-') == -1)
               Failure(new Error('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}'));
             else
@@ -331,8 +331,8 @@ class Generator {
     return invoke(tagName, tag.create, args, tagName.pos);
   }
 
-  function complexAttribute(n:Node) 
-    return function (t:Option<Type>):Expr       
+  function complexAttribute(n:Node)
+    return function (t:Option<Type>):Expr
       return applyCustomRules(
         switch t {
           case Some(t): t;
@@ -341,7 +341,7 @@ class Generator {
         function (t) return switch t {
           case TFun(requiredArgs, ret):
             var declaredArgs = [for (a in n.attributes) switch a {
-              case Splat(e): 
+              case Splat(e):
                 e.reject(
                   if (e.getIdent().isSuccess())
                     'Use empty attribute instead of spread operator on ident to define argument name'
@@ -355,18 +355,18 @@ class Generator {
             }];
 
             var splat = false;
-            var args:Array<FunctionArg> = 
+            var args:Array<FunctionArg> =
               switch [requiredArgs.length, declaredArgs.length] {
                 case [1, 0]:
                   splat = true;
                   [{
-                    name: '__data__', 
+                    name: '__data__',
                     type: requiredArgs[0].t.toComplex(),
                     opt: requiredArgs[0].opt
                   }];
                 case [l, l2] if (l == l2):
-                  [for (i in 0...l) { 
-                    name: declaredArgs[i].value, 
+                  [for (i in 0...l) {
+                    name: declaredArgs[i].value,
                     type: requiredArgs[i].t.toComplex(),
                     opt: requiredArgs[i].opt
                   }];
@@ -375,7 +375,7 @@ class Generator {
                   else n.name.pos.error('not enough arguments');
               }
 
-            var body =      
+            var body =
               later(makeBody.bind(n.children, ret));
             if (splat)
               body = macro @:pos(body.pos) {
@@ -383,18 +383,18 @@ class Generator {
                 return $body;
               }
             body.func(args).asExpr();
-          default: 
+          default:
             makeChildren(n.children, t, true);
         }
       );
 
-  function getTag(name:StringAt):Tag 
+  function getTag(name:StringAt):Tag
     return Tag.resolve(localTags, name).sure();
 
-  function isOnlyChild(t:Type) 
+  function isOnlyChild(t:Type)
     return !Context.unify(Context.typeof(macro []), t);
 
-  function makeChildren(c:Children, t:Type, root:Bool) 
+  function makeChildren(c:Children, t:Type, root:Bool)
     return applyCustomRules(t, function (t) {
       var ct = t.toComplex();
       return
@@ -415,10 +415,10 @@ class Generator {
   function child(c:Child, flatten:Children->Expr):Expr
     return switch c.value {
       case CExpr(e): yield(e);
-      case CSplat(e): 
-        child({ 
+      case CSplat(e):
+        child({
           value: CFor(
-            macro @:pos(e.pos) _0 in $e, 
+            macro @:pos(e.pos) _0 in $e,
             {
               value: [{
                 value: CExpr(macro @:pos(e.pos) _0),
@@ -426,22 +426,22 @@ class Generator {
               }],
               pos: e.pos,
             }
-          ), 
-          pos: e.pos 
+          ),
+          pos: e.pos
         }, flatten);
       case CText(s): yield(s.value.toExpr(s.pos));
       case CNode(n): yield(node(n, c.pos));
-      case CSwitch(target, cases): 
+      case CSwitch(target, cases):
         ESwitch(target, [for (c in cases) {
           values: c.values,
           guard: c.guard,
-          expr: 
+          expr:
             if (c.children != null) later(flatten.bind(c.children))//TODO: avoid bouncing here
             else null,
         }], null).at(c.pos);
 
-      case CIf(cond, cons, alt): 
-        
+      case CIf(cond, cons, alt):
+
         macro @:pos(c.pos) if ($cond) ${flatten(cons)} else ${if (alt == null) emptyElse() else flatten(alt)};
 
       case CLet(defs, c):
@@ -461,27 +461,37 @@ class Generator {
           case Splat(e):
             var tmp = MacroApi.tempName();
             add(tmp, e);
-            for (f in e.typeof().sure().getFields().sure()) 
+            for (f in e.typeof().sure().getFields().sure())
               if (f.isPublic && !f.kind.match(FMethod(MethMacro)))
                 add(f.name, macro @:pos(e.pos) $p{[tmp, f.name]});
         }
-        
+
         [EVars(vars).at(c.pos), later(flatten.bind(c))].toBlock(c.pos);//TODO: find a reliable solution without bouncing
 
-      case CFor(head, body): 
-        
-        macro @:pos(c.pos) for ($head) ${
-          flatten.bind(body).inSubScope(switch head {
-            case macro $i{name} in $target: 
-              var type = (macro @:pos(head.pos) (function () {
+      case CFor(head, body):
+
+        function mk(name:String, ?value:String) {
+          function getVar(name):Var
+            return {
+              name: name,
+              expr: macro cast null,
+              type: (macro @:pos(head.pos) (function () {
                 for ($head) return $i{name};
                 return cast null;
-              })()).typeof().sure().toComplex();
-              [{
-                name: name,
-                type: type,
-                expr: macro cast null,
-              }];
+              })()).typeof().sure().toComplex()
+            }
+          var ret = [getVar(name)];
+          if (value != null)
+            ret.push(getVar(value));
+          return ret;
+        }
+
+        macro @:pos(c.pos) for ($head) ${
+          flatten.bind(body).inSubScope(switch head {
+            case macro $i{name} in $_:
+              mk(name);
+            case macro $i{name} => $i{value} in $_:
+              mk(name, value);
             default: head.reject('invalid loop head');
           })
         };
@@ -503,7 +513,7 @@ class Generator {
         default:
       }
 
-    return 
+    return
       if (!hasDot) attributes;
       else {
 
@@ -525,9 +535,9 @@ class Generator {
               prefix = '';
 
           for (p in parts) {
-            
+
             var parent = prefix;
-            
+
             prefix = switch prefix {
               case '': p;
               case v: '$v.$p';
@@ -536,7 +546,7 @@ class Generator {
             if (!objects.exists(prefix)) {
               objects[prefix] = [];
 
-              if (parent != '') 
+              if (parent != '')
                 objects[parent].push({ field: p, expr: EObjectDecl(objects[prefix]).at(path.pos) });
             }
           }
@@ -552,12 +562,12 @@ class Generator {
               add(s, e);
             default:
               ret.push(a);
-          }        
+          }
         ret;
       }
   }
 
-  static public function normalize(children:Array<Child>) 
+  static public function normalize(children:Array<Child>)
     return switch children {
       case null: [];
       default:
@@ -572,7 +582,7 @@ class Generator {
     }
 
   static public function trimString(s:String) {
-    
+
     var pos = 0,
         max = s.length,
         leftNewline = false,
@@ -586,7 +596,7 @@ class Generator {
       }
       pos++;
     }
-    
+
     while (max > pos) {
       switch s.charCodeAt(max-1) {
         case '\n'.code | '\r'.code: rightNewline = true;
@@ -595,19 +605,19 @@ class Generator {
       }
       max--;
     }
-        
-    if (!leftNewline) 
+
+    if (!leftNewline)
       pos = 0;
     if (!rightNewline)
       max = s.length;
-      
-    return s.substring(pos, max);
-  }  
 
-  function onlyChild(c:Children, ?root = true, ?expected:ComplexType) 
+    return s.substring(pos, max);
+  }
+
+  function onlyChild(c:Children, ?root = true, ?expected:ComplexType)
     return switch normalize(c.value) {
       case []: c.pos.error('Empty HXX');
-      case [v]: 
+      case [v]:
         var child = child(v, this.onlyChild.bind(_, false));
         if (root) {
           if (expected == null)
@@ -621,14 +631,14 @@ class Generator {
               var $OUT:Array<$expected> = [];
               $child;
               $i{OUT}[0];
-            }            
+            }
         }
         else child;
       case v: v[1].pos.error('Only one element allowed here');
-    }  
+    }
 
   var localTags:Map<String, Position->Tag>;
-  
+
   function withTags<T>(tags, f:Void->T) {
     var last = localTags;
     return tink.core.Error.tryFinally(
@@ -640,7 +650,7 @@ class Generator {
     );
   }
 
-  function later(e:Void->Expr) 
+  function later(e:Void->Expr)
     return withTags.bind(localTags, e).bounce();
 
   public function createContext():GeneratorContext {
@@ -651,7 +661,7 @@ class Generator {
     }
   }
 
-  public function root(root:Children):Expr 
+  public function root(root:Children):Expr
     return createContext().generateRoot(root);
 
 }

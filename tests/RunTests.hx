@@ -9,7 +9,7 @@ import Tags.*;
 @:asserts
 class RunTests {
   public function new() {}
-  
+
   public function whitespace() {
     asserts.assert(compare(tag('test', {}), dom('<test />')));
     asserts.assert(compare(tag('test', {}), dom('  <test />')));
@@ -18,11 +18,11 @@ class RunTests {
     asserts.assert(compare(tag('test', {}), dom('  <test/>  ')));
     asserts.assert(compare(tag('test', {}), dom('  <test / >  ')));
     asserts.assert(compare(tag('test', {}), dom('  <test></test>  ')));
-    asserts.assert(compare(tag('test', { }, [text('   ')]), dom('  
+    asserts.assert(compare(tag('test', { }, [text('   ')]), dom('
     <test>   </test>  ')));
-    
+
     var numbers = [for (i in 0...100) i];
-    
+
     asserts.assert(compare(
       tag('div', {}, [for (i in 0...4) tag('button', {}, [i])]),
       dom('
@@ -35,13 +35,13 @@ class RunTests {
       ')
     ));
     var foo = tag('foo', { } );
-    
+
     dom('{import "test"}');
-    
+
     asserts.assert(compare(tag('test', {}, [text(' test '), foo, text('test'), foo, text(' ')]), dom('  <test> test {foo}test${foo} </test>  ')));
     asserts.assert(compare(tag('test', {}, [text('  '), text(' ')]), dom('  <test>  <!-- ignore this please --> </test>  ')));
     asserts.assert(compare([tag('foo', { } ), text(' '), tag('bar', { } ), tag('baz', { } )], dom('<wrap><foo /> <bar></bar><baz /></wrap>').children));
-    
+
     asserts.assert(compare(tag('test', {}, ['foo']), dom('<test>foo</test>')));
     asserts.assert(compare(tag('test', {}, [' foo']), dom('<test> foo</test>')));
     asserts.assert(compare(tag('test', {}, ['foo  ']), dom('<test>foo  </test>')));
@@ -69,7 +69,7 @@ class RunTests {
     );
     return asserts.done();
   }
-  
+
   public function control() {
     var other = dom('<other/>');
     asserts.assert('<div><zero></zero><one></one><two></two><other></other><other></other></div>' == dom('
@@ -82,7 +82,7 @@ class RunTests {
           <elseif {i == 2}>
             <two />
           <else>
-            ${other}        
+            ${other}
           </if>
         </for>
       </div>
@@ -104,7 +104,7 @@ class RunTests {
         </for>
       </div>
     ').format());
-    
+
     return asserts.done();
   }
 
@@ -125,8 +125,8 @@ class RunTests {
   }
 
   public function localTags() {
-    
-    function blub(attr:{ function hoho(attr:{ function woooosh(attr:{ foo:Int }):String; }):Array<String>; }) 
+
+    function blub(attr:{ function hoho(attr:{ function woooosh(attr:{ foo:Int }):String; }):Array<String>; })
       return attr.hoho({ woooosh: function (o) return [for (i in 0...o.foo) 'x'].join('') });
 
     var arr = Plain.hxx('
@@ -159,14 +159,14 @@ class RunTests {
 
     asserts.assert(compare(o, Plain.hxx('<identity foo.x={3} foo.y={4} bar="yolo" deep.a.b.c="d" />')));
 
-    return asserts.done();    
+    return asserts.done();
   }
 
   #if haxe4
-  
+
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
-    
+
     #if tink_parse_unicode
     NonSense.showOff();
     #end
@@ -178,13 +178,23 @@ class RunTests {
     );
     return asserts.done();
   }
+
+  public function keyValueIterator() {
+    var map = ['foo' => 'bar'];
+    asserts.assert(
+      'foo bar' == Plain.hxx(
+        <div><for ${key => val in map}>$key $val</for></div>
+      ).join('')
+    );
+    return asserts.done();
+  }
   #end
-  
+
   static function main() {
-    
+
     Runner.run(TestBatch.make([
       new RunTests(),
     ])).handle(Runner.exit);
   }
-  
+
 }
