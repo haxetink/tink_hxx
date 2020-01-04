@@ -305,20 +305,23 @@ class Generator {
       mergeParts(
         mangled.attrs,
         splats,
-        function (name) return switch fields[name] {
-          case null:
-            if (name.indexOf('-') == -1)
-              Failure(new Error('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}'));
-            else
-              Success(None);
-          case f: Success(Some((f:FieldInfo)));
-        },
+        RStatic([for (f in fields) f.name => ({
+          name: f.name,
+          pos: f.pos,
+          optional: f.meta.has(':optional'),
+          type: f.type,// perhaps do something about params?
+        }:FieldInfo)]),
         function (name) return switch aliases[name] {
           case null: name;
           case v: v;
         },
         n.name.pos,
-        attrType
+        attrType,
+        {
+          unknownField: function (name) return '<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}',
+          duplicateField: function (name) return 'duplicate attribute $name',
+          missingField: function (name) return 'missing attribute $name',//TODO: might be nice to put type here
+        }
       );
 
     var args = mangled.children.toArray();

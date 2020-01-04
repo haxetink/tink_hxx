@@ -7,12 +7,12 @@ abstract AttrVal(String) from String to String {
 }
 
 @:forward
-abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } { 
-    
+abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } {
+
   static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Array<Dummy>):Dummy
     return { name: name, attr: attr, children: children };
-  
-  public function format():String 
+
+  public function format():String
     return switch this.name {
       case '--text':
         this.attr['content'];
@@ -37,26 +37,26 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
             ret += c.format();
         ret + '</$v>';
     }
-  
-    
+
+
   @:to function toArray():Array<Dummy>
     return [this];
-    
+
   @:from static public function ofArray(a:Array<Dummy>)
     return tag('', { }, a);
-    
+
   @:from static public function text(s:String):Dummy
     return tag('--text', { content: s }, null);
-    
+
   @:from static public function int(i:Int):Dummy
     return text(Std.string(i));
-  
+
   macro static public function dom(e) {
     var gen = new DummyGen();
-    return 
+    return
       gen.root(
         tink.hxx.Parser.parseRoot(
-          e, 
+          e,
           {
             defaultExtension: 'hxx',
             isVoid: function (s) return switch s.value {
@@ -66,7 +66,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
             treatNested: gen.root
           }
         )
-      ); 
+      );
   }
 }
 
@@ -93,11 +93,11 @@ class DummyGen extends tink.hxx.Generator {
             name: name.value,
             pos: name.pos,
             getValue: function (_) return value,
-          });        
+          });
       }
-    
-    var a = tink.anon.Macro.mergeParts(attr, splats, pos, macro : Dynamic<Dummy.AttrVal>);
-    var children = 
+
+    var a = tink.anon.Macro.mergeParts(attr, splats, RDynamic(), pos, macro : Dynamic<Dummy.AttrVal>);
+    var children =
       switch n.children {
         case null | { value: null | [] }: macro null;
         case v: makeChildren(v, childrenType, false);
