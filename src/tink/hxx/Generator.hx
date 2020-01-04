@@ -309,7 +309,7 @@ class Generator {
           name: f.name,
           pos: f.pos,
           optional: f.meta.has(':optional'),
-          type: f.type,// perhaps do something about params?
+          type: Some(f.type),// perhaps do something about params?
         }:FieldInfo)]),
         function (name) return switch aliases[name] {
           case null: name;
@@ -318,7 +318,17 @@ class Generator {
         n.name.pos,
         attrType,
         {
-          unknownField: function (name) return '<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}',
+          unknownField: function (p) return switch p.name {
+            case name = _.indexOf('-') => -1:
+              Failure('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}');
+            default:
+              Success({
+                name: p.name,
+                pos: p.pos,
+                optional: false,
+                type: None,
+              });
+          },
           duplicateField: function (name) return 'duplicate attribute $name',
           missingField: function (name) return 'missing attribute $name',//TODO: might be nice to put type here
         }
