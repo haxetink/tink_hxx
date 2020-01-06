@@ -1,5 +1,6 @@
 package tink.hxx;
 
+#if macro
 import haxe.macro.Expr;
 import tink.hxx.Node;
 import tink.parse.Char.*;
@@ -22,7 +23,7 @@ typedef ParserConfig = {
 }
 
 private typedef ParserSourceData = {
-  var source:StringSlice;  
+  var source:StringSlice;
   var offset:Int;
   var fileName:String;
 }
@@ -35,28 +36,28 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
   }
 
   static public function ofExpr(e:Expr):ParserSource {
-    
+
     var offset = 1;
     switch e {
-      case macro @:markup $v: 
+      case macro @:markup $v:
         e = v;
         offset = 0;
       default:
     }
 
     var s = e.getString().sure(),
-        pos = Context.getPosInfos(e.pos);  
+        pos = Context.getPosInfos(e.pos);
 
     return ({
       source: s,
-      offset: pos.min + offset, 
+      offset: pos.min + offset,
       fileName: pos.file,
     }:ParserSourceData);
   }
 }
 
-class Parser extends ParserBase<Position, haxe.macro.Error> { 
-  
+class Parser extends ParserBase<Position, haxe.macro.Error> {
+
   var fileName:String;
   var config:ParserConfig;
   var isVoid:StringAt->Bool;
@@ -69,8 +70,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     this.config = config;
 
     super(setup.source, Reporter.expr(this.fileName = setup.fileName), setup.offset);
-    
-    function get<T>(o:{ var isVoid(default, null):T; }) 
+
+    function get<T>(o:{ var isVoid(default, null):T; })
       return o.isVoid;
 
     this.isVoid = switch get(config) {
@@ -79,9 +80,16 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
 
     this.treatNested = config.treatNested;
+    #if tink_syntaxhub
+      switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
+        case Some(f): processExpr = f;
+        case None:
+      }
+    #end
+
   }
-  
-  function withPos(s:StringSlice, ?transform:Int->String->String):StringAt 
+
+  function withPos(s:StringSlice, ?transform:Int->String->String):StringAt
     return {
       pos: makePos(s.start, s.end),
       value: switch transform {
@@ -89,21 +97,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         case v: v(s.start, s);
       },
     }
-  
-  function processExpr(e:Expr) 
-    return
-      #if tink_syntaxhub
-        switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
-          case Some(f): f(e);
-          case None: e;
-        }
-      #else
-        e;
-      #end
+
+  dynamic function processExpr(e:Expr)
+    return e;
 
   function reenter(e:Expr)
     return switch e {
-      case macro @:markup ${{ expr: EConst(CString(_)) }}: 
+      case macro @:markup ${{ expr: EConst(CString(_)) }}:
         treatNested(createParser(e).parseRootNode());
       default: e.map(reenter);
     }
@@ -113,7 +113,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     if (source.trim().length == 0) return macro @:pos(pos) null;
 
     return
-      reenter(processExpr( 
+      reenter(processExpr(
         try Context.parseInlineString(source, pos)
         catch (e:haxe.macro.Error) throw e
         catch (e:Dynamic) pos.error(e)
@@ -124,46 +124,46 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var name = withPos(ident(true).sure());
     return macro @:pos(name.pos) $i{name.value};
   }
-    
+
   function argExpr()
-    return 
-      if (allow("${") || allow('{')) 
+    return
+      if (allow("${") || allow('{'))
         Success(ballancedExpr('{', '}'));
-      else if (allow("$")) 
+      else if (allow("$"))
         Success(simpleIdent());
-      else 
+      else
         Failure(makeError('expression expected', makePos(pos, pos)));
-    
+
   function ballancedExpr(open:String, close:String) {
     var src = ballanced(open, close);
     return parseExpr(src.value, src.pos);
   }
-  
+
   function ballanced(open:String, close:String) {
     var start = pos;
     var ret = null;
     do {
       if (!upto(close).isSuccess())
         die('Missing corresponding `$close`', start...start+1);
-      
+
       var inner = withPos(source[start...pos-1]);
-      
+
       if (inner.value.split(open).length == inner.value.split(close).length)
         ret = inner;
     } while (ret == null);
-    
-    return ret;          
+
+    return ret;
   }
-  
+
   function kwd(name:String) {
     if (config.noControlStructures) return false;
     var pos = pos;
-    
+
     var found = switch ident(true) {
       case Success(v) if (v == name): true;
       default: false;
     }
-    
+
     if (!found) this.pos = pos;
     return found;
   }
@@ -184,8 +184,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         selfClosing = true;
         break;
       }
-      
-      if (allow("${") || allow('{')) {        
+
+      if (allow("${") || allow('{')) {
         if (allow('...')) {
           ret.push(Splat(ballancedExpr('{', '}')));
           continue;
@@ -193,9 +193,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         die('unexpected {');
       }
       var attr = withPos(ident().sure());
-              
+
       ret.push(
-        if (allow('=')) 
+        if (allow('='))
           Regular(attr, switch argExpr() {
             case Success(e): macro @:pos(e.pos) ($e);
             default:
@@ -206,14 +206,14 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         else
           Empty(attr)
       );
-    }   
+    }
 
     return {
       selfClosing: selfClosing,
       attributes: ret,
-    }     
+    }
   }
-  
+
   function parseChild() return located(function () {
     var fragment = allowHere('>');
     if (fragment && config.fragment == null)
@@ -222,10 +222,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       if (fragment) source[pos-1...pos-1];
       else tagName()
     );
-    
+
     var hasChildren = true;
     var attrs = [];
-    
+
     if (!fragment) {
       var r = parseAttributes();
       hasChildren = !r.selfClosing;
@@ -239,13 +239,13 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
     return CNode({
       name: if (fragment) { value: config.fragment, pos: name.pos } else name,
-      attributes: attrs, 
+      attributes: attrs,
       children: if (hasChildren) parseChildren(name.value) else null
     });
   });
-  
+
   function parseString() {
-    var end = 
+    var end =
       if (allow("'")) "'";
       else {
         expect('"');
@@ -282,19 +282,19 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return result;
   }
 
-  function tagName() 
+  function tagName()
     return ident(true).sure();
-  
+
   function parseChildren(?closing:String):Children {
     var ret:Array<Child> = [],
-        start = pos;    
+        start = pos;
 
     function result():Children return {
       pos: makePos(start, pos),
       value: ret,
-    }  
+    }
 
-    function handleElse(elseif:Bool) 
+    function handleElse(elseif:Bool)
       return
         switch closing {
           case 'if': throw new Else(result(), elseif);//TODO: this whole throwing business is probably a bad idea
@@ -303,8 +303,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         }
 
     function toChildren(e:Expr):Children
-      return 
-        if (e == null || e.pos == null) null 
+      return
+        if (e == null || e.pos == null) null
         else {
           pos: e.pos,
           value: [{ pos: e.pos, value: CExpr(e) }]
@@ -316,7 +316,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         value: switch e.expr {
           case EFor(head, body): CFor(head, toChildren(body));
           case EIf(cond, cons, alt): CIf(cond, toChildren(cons), toChildren(alt));
-          case ESwitch(target, cases, dFault): 
+          case ESwitch(target, cases, dFault):
 
             var cases = [for (c in cases) {
               guard: c.guard,
@@ -334,110 +334,110 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             CSwitch(target, cases);
           default: CExpr(e);
         }
-      });    
+      });
 
     function text(slice) {
       var text = withPos(slice, replaceEntities);
       if (text.value.length > 0)
         ret.push({
           pos: text.pos,
-          value: CText(text) 
+          value: CText(text)
         });
-    }      
-    
-    while (pos < max) {  
-      
+    }
+
+    while (pos < max) {
+
       switch first(["${", "$", "{", "<"], text) {
         case Success("<"):
-          if (allowHere('!--')) 
+          if (allowHere('!--'))
             upto('-->', true).sure();
           else if (allowHere('!'))
             die('Invalid comment or unsupported processing instruction');
           else if (allowHere('/')) {
-            var found = 
-              if (allowHere('>')) 
+            var found =
+              if (allowHere('>'))
                 source[pos - 1 ... pos - 1];
-              else 
+              else
                 tagName() + expectHere('>');
             if (found != closing)
               die(
                 if (isVoid(withPos(found)))
                   '</$found> is illegal because <$found> is a void tag'
                 else
-                  'found </$found> but expected </$closing>', 
+                  'found </$found> but expected </$closing>',
                 found.start...found.end
               );
             return result();
           }
-          else if (kwd('for')) 
+          else if (kwd('for'))
             ret.push(located(function () {
               return CFor(argExpr().sure() + expect('>'), parseChildren('for'));
             }));
-          else if (kwd('let')) 
+          else if (kwd('let'))
             ret.push(located(function () return switch parseAttributes() {
               case { selfClosing: true}: die('<let> may not be self-closing', pos-2...pos);
               case { attributes: a }: CLet(a, parseChildren('let'));
             }));
-          else if (kwd('switch')) 
+          else if (kwd('switch'))
             ret.push(parseSwitch());
-          else if (kwd('if')) 
+          else if (kwd('if'))
             ret.push(parseIf());
           else if (kwd('else'))
             handleElse(false);
-          else if (kwd('elseif')) 
+          else if (kwd('elseif'))
             handleElse(true);
-          else if (kwd('case')) 
+          else if (kwd('case'))
             switch closing {
               case 'switch': throw new Case(result());
               case null: die('dangling case', start ... pos);
               case v: die('unclosed $v', start ... pos);
             }
-          else 
-            ret.push(parseChild());        
-          
+          else
+            ret.push(parseChild());
+
         case Success("$"):
-          
+
           expr(simpleIdent());
-          
+
         case Success(v):
-          
+
           if (allow('import')) {
-            
+
             var file = parseString();
-            
+
             expect('}');
-                        
+
             var name = file.value;
-            
+
             if (name.extension() == '')
               name = '$name.${config.defaultExtension}';
-                          
+
             if (!name.startsWith('./'))
               name = Path.join([fileName.directory(), name]);
-              
-            var content = 
+
+            var content =
               try
                 sys.io.File.getContent(name)
               catch (e:Dynamic)
                 file.pos.error(e);
-            
+
             Context.registerModuleDependency(Context.getLocalModule(), name);
-                
+
             var p = createParser({ fileName: name, source: (content:StringSlice), offset: 0 });
             for (c in p.parseChildren().value)
               ret.push(c);
-            
+
           }
           else if (allow('...')) {
             var e = ballancedExpr('{', '}');
             ret.push({
               pos: e.pos,
               value: CSplat(e),
-            });    
+            });
           }
           else
             expr(ballancedExpr('{', '}'));
-            
+
         case Failure(e):
           this.skipIgnored();
           if (closing == null) {
@@ -450,23 +450,23 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
               e.pos.error(e.message);
           }
       }
-            
+
     }
-    
+
     if (closing != null)
       die('unclosed <$closing>');
-    
+
     return result();
   };
-  
+
   function parseSwitch() return located(function () return {
-    var target = 
+    var target =
       (switch [argExpr(), config.defaultSwitchTarget] {
         case [Success(v), _]: v;
         case [Failure(v), null]: macro @:pos(makePos(pos)) __data__;
         case [_, v]: v;
       }) + expect('>') + expect('<case');
-    
+
     var cases = [];
     var ret = CSwitch(target, cases);
     var last = false;
@@ -491,32 +491,32 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
   function onlyChild(c:Child):Children
     return { pos: c.pos, value: [c] };
-  
+
   function parseIf():Child {
     var start = pos;
     var cond = argExpr().sure() + expect('>');
-    
+
     function make(cons, ?alt):Child {
-      
+
       return {
         pos: makePos(start, pos),
         value: CIf(cond, cons, alt)
       }
     }
-    return 
+    return
       try {
         make(parseChildren('if'));
       }
       catch (e:Else) {
-        if (e.elseif || switch ident() { case Success(v): if (v == 'if') true else die('unexpected $v', v.start...v.end); default: false; } ) 
+        if (e.elseif || switch ident() { case Success(v): if (v == 'if') true else die('unexpected $v', v.start...v.end); default: false; } )
           make(e.children, onlyChild(parseIf()));
         else
           expect('>') + make(e.children, parseChildren('if'));
       }
   }
-  
+
   static var IDENT_START = "$:_" || UPPER || LOWER
-    #if tink_parse_unicode 
+    #if tink_parse_unicode
       || 0xF8...0x2FF || 0xF8...0x2FF || 0x370...0x37D || 0x37F...0x1FFF ||
       0x200C...0x200D || 0x2070...0x218F || 0x2C00...0x2FEF ||
       0x3001...0xD7FF || 0xF900...0xFDCF || 0xFDF0...0xFFFD ||
@@ -525,14 +525,14 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
   ;
 
   static var IDENT_CONTD = IDENT_START || DIGIT || '-.' || 0xB7 || 0x0300...0x036F || 0x203F...0x2040;
-  
-  function ident(here = false) 
-    return 
+
+  function ident(here = false)
+    return
       if ((here && is(IDENT_START)) || (!here && upNext(IDENT_START)))
         Success(readWhile(IDENT_CONTD));
-      else 
-        Failure(makeError('Identifier expected', makePos(pos)));  
-  
+      else
+        Failure(makeError('Identifier expected', makePos(pos)));
+
   override function doSkipIgnored() {
     doReadWhile(WHITE);
     if (allowHere('<!--')) upto('-->', true).sure();
@@ -543,43 +543,44 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return try {
       parseChildren();
     }
-    catch (e:Case) 
+    catch (e:Case)
       die('case outside of switch', pos - 4 ... pos)
     catch (e:Else)
-      die('else without if', pos - 4 ... pos);    
+      die('else without if', pos - 4 ... pos);
   }
-  
-  static public function parseRootWith(e:Expr, createParser:ParserSource->Parser) 
-    return createParser(e).parseRootNode(); 
+
+  static public function parseRootWith(e:Expr, createParser:ParserSource->Parser)
+    return createParser(e).parseRootNode();
 
   static public function parseRoot(e:Expr, config:ParserConfig) {
     function create(source:ParserSource):Parser
       return new Parser(source, create, config);
     return parseRootWith(e, create);
   }
-    
+
 }
 private class Branch {
-  
+
   public var children(default, null):Children;
-  
+
   public function new(children)
     this.children = children;
-    
-  public function toString() 
+
+  public function toString()
     return 'misplaced ${Type.getClassName(Type.getClass(this))}';
 }
 
-private class Case extends Branch { 
-  
+private class Case extends Branch {
+
 }
-private class Else extends Branch { 
-  
+private class Else extends Branch {
+
   public var elseif(default, null):Bool;
-  
+
   public function new(children, elseif) {
     super(children);
     this.elseif = elseif;
   }
-  
+
 }
+#end

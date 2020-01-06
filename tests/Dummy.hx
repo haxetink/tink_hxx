@@ -1,4 +1,9 @@
 package;
+
+#if macro
+import haxe.macro.Expr;
+using tink.MacroApi;
+#end
 import haxe.DynamicAccess;
 
 abstract AttrVal(String) from String to String {
@@ -7,9 +12,9 @@ abstract AttrVal(String) from String to String {
 }
 
 @:forward
-abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } {
+abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Children }) from { name:String, attr:Dynamic<AttrVal>, children:Children } {
 
-  static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Array<Dummy>):Dummy
+  static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Children):Dummy
     return { name: name, attr: attr, children: children };
 
   public function format():String
@@ -39,10 +44,10 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
     }
 
 
-  @:to function toArray():Array<Dummy>
+  @:to function toArray():Children
     return [this];
 
-  @:from static public function ofArray(a:Array<Dummy>)
+  @:from static public function ofArray(a:Children)
     return tag('', { }, a);
 
   @:from static public function text(s:String):Dummy
@@ -70,11 +75,44 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
   }
 }
 
+@:pure
+abstract Children(Array<Dummy>) from Array<Dummy> {
+  public var length(get, never):Int;
+    inline function get_length()
+      return if (this == null) 0 else this.length;
+
+  @:arrayAccess public inline function get(index:Int)
+    return if (this == null) null else this[index];
+
+  @:from static function ofSingle(r:Dummy):Children
+    return [r];
+
+  public function concat(that:Array<Dummy>):Children
+    return if (this == null) that else this.concat(that);
+
+  public function prepend(r:Dummy):Children
+    return switch [this, r] {
+      case [null, null]: null;
+      case [v, null]: v;
+      case [null, v]: v;
+      case [a, b]: [b].concat(a);
+    }
+
+  public function append(r:Dummy):Children
+    return switch [this, r] {
+      case [null, null]: null;
+      case [v, null]: v;
+      case [null, v]: v;
+      case [a, b]: a.concat([b]);
+    }
+
+}
+
 #if macro
 class DummyGen extends tink.hxx.Generator {
-  var childrenType = haxe.macro.ComplexTypeTools.toType(macro : Array<Dummy>);
-  override function node(n:tink.hxx.Node, pos:haxe.macro.Expr.Position) {
+  var childrenType = haxe.macro.ComplexTypeTools.toType(macro : Dummy.Children);
 
+  override function node(n:tink.hxx.Node, pos:Position) {
     var attr:Array<tink.anon.Macro.Part> = [],
         splats = [];
 
@@ -100,8 +138,9 @@ class DummyGen extends tink.hxx.Generator {
     var children =
       switch n.children {
         case null | { value: null | [] }: macro null;
-        case v: makeChildren(v, childrenType, false);
+        case v: childList(v, childrenType);
       }
+
     return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
   }
 }

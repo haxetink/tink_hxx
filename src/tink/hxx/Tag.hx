@@ -246,13 +246,14 @@ using StringTools;
 
       if (isVoid && args.children != null)
         pos.error('Tag declared void, but has children');
+
       return {
         create: create,
         hxxMeta: hxxMeta,
         args: args,
         name: name,
         isVoid: isVoid,
-      };
+      }
     }
 
     return

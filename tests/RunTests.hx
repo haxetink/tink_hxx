@@ -7,6 +7,7 @@ import Dummy.*;
 import Tags.*;
 
 @:asserts
+@:tink
 class RunTests {
   public function new() {}
 
@@ -161,6 +162,22 @@ class RunTests {
 
     return asserts.done();
   }
+
+  #if tink_lang
+  public function fatArrow() {
+    var a = [for (i in 0...10) '$i'];
+
+    #if tink_parse_unicode
+    NonSense.showOff();
+    #end
+
+    Plain.hxx(
+      <div key="5">
+        {a.map(x => x)}
+      </div>
+    );
+  }
+  #end
 
   #if haxe4
 
