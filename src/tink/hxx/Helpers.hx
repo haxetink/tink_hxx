@@ -135,8 +135,11 @@ class Helpers {
       default:
     }
 
-    function dedupe(e:Expr)
-      return switch Context.typeExpr(e) {
+    function dedupe(e:Expr) {
+      var te = try Context.typeExpr(e) catch (_:Dynamic) null;
+
+      return switch te {
+        case null: value;
         case typed = { expr: TFunction(f) }:
           Context.storeTypedExpr(
             switch Context.follow(f.expr.t) {
@@ -150,6 +153,7 @@ class Helpers {
           );
         case v: throw "assert";
       }
+    }
 
     function liftCallback(eventType:Type) {
       if (value.expr.match(EFunction(_, _)))
