@@ -167,20 +167,23 @@ class RunTests {
   public function fatArrow() {
     var a = [for (i in 0...10) '$i'];
 
-    #if tink_parse_unicode
-    NonSense.showOff();
-    #end
-
-    Plain.hxx(
+    var plain = Plain.hxx(
+      <div key="5">
+        {a.map(function (x) return x)}
+      </div>
+    );
+    var fat = Plain.hxx(
       <div key="5">
         {a.map(x => x)}
       </div>
     );
+
+    asserts.assert(compare(plain, fat));
+    return asserts.done();
   }
   #end
 
   #if haxe4
-
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
 

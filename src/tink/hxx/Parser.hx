@@ -36,7 +36,10 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
   }
 
   static public function ofExpr(e:Expr):ParserSource {
-
+    switch e {
+      case macro hxx($e): return ofExpr(e);
+      default:
+    }
     var offset = 1;
     switch e {
       case macro @:markup $v:
@@ -80,13 +83,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     }
 
     this.treatNested = config.treatNested;
-    #if tink_syntaxhub
-      switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
-        case Some(f): processExpr = f;
-        case None:
-      }
-    #end
-
   }
 
   function withPos(s:StringSlice, ?transform:Int->String->String):StringAt
@@ -97,9 +93,6 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         case v: v(s.start, s);
       },
     }
-
-  dynamic function processExpr(e:Expr)
-    return e;
 
   function reenter(e:Expr)
     return switch e {
@@ -113,11 +106,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     if (source.trim().length == 0) return macro @:pos(pos) null;
 
     return
-      reenter(processExpr(
+      reenter(
         try Context.parseInlineString(source, pos)
         catch (e:haxe.macro.Error) throw e
         catch (e:Dynamic) pos.error(e)
-      ));
+      );
   }
 
   function simpleIdent() {

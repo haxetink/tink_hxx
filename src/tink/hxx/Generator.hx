@@ -200,7 +200,8 @@ class Generator {
       },
       pos: name.pos,
       quotes: quotes,
-      getValue: function (expected:Option<Type>)
+      getValue: function (expected:Option<Type>) {
+        value = postProcess(value);
         return
           switch expected {
             case Some(t):
@@ -208,6 +209,7 @@ class Generator {
             default:
               value;
           }
+        }
     };
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
@@ -376,15 +378,15 @@ class Generator {
 
     inline function ret(e)
       return
-        if (yield == null) e;
-        else yield(e);
+        if (yield == null) postProcess(e);
+        else yield(postProcess(e));
 
     return switch c.value {
       case CExpr(e): ret(e);
       case CSplat(e):
         if (yield == null)
           c.pos.error('single child expected');
-        macro @:pos(c.pos) for (_0 in $e) ${yield(macro @:pos(c.pos) _0)};
+        macro @:pos(c.pos) for (_0 in ${postProcess(e)}) ${yield(macro @:pos(c.pos) _0)};
       case CText(s):
         ret(macro @:pos(s.pos) $v{s.value});
       case CSwitch(target, cases):
@@ -433,14 +435,28 @@ class Generator {
 
   var localTags:Map<String, Position->Tag>;
 
+  dynamic function postProcess(e:Expr)
+    return e;
+
   function withTags<T>(tags, f:Void->T) {
+    #if tink_syntaxhub var lastFn = postProcess; #end
+
     var last = localTags;
     return tink.core.Error.tryFinally(
       function () {
         localTags = tags;
+        #if tink_syntaxhub
+        postProcess =  switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
+          case Some(f): f;
+          case None: function (e) return e;
+        }
+        #end
         return f();
       },
-      function () localTags = last
+      function () {
+        localTags = last;
+        #if tink_syntaxhub postProcess = lastFn; #end
+      }
     );
   }
 
