@@ -126,6 +126,7 @@ class Helpers {
   }
 
   static public function functionSugar(value:Expr, t:Type) {
+
     while (true) switch value {
       case macro ($v): value = v;
       default: break;
@@ -136,11 +137,8 @@ class Helpers {
       default:
     }
 
-    function dedupe(e:Expr) {
-      var te = try Context.typeExpr(e) catch (_:Dynamic) null;
-
-      return switch te {
-        case null: value;
+    function dedupe(e:Expr)
+      return switch Context.typeExpr(e) {
         case typed = { expr: TFunction(f) }:
           Context.storeTypedExpr(
             switch Context.follow(f.expr.t) {
@@ -154,7 +152,6 @@ class Helpers {
           );
         case v: throw "assert";
       }
-    }
 
     function liftCallback(eventType:Type) {
       if (value.expr.match(EFunction(_, _)))
@@ -171,7 +168,13 @@ class Helpers {
       case TFun([{ t: evt }], _.getID() => 'Void'):
         liftCallback(evt);
       case TFun([], _.getID() => 'Void'):
-        dedupe(macro @:pos(value.pos) function () $value);
+        var t = Context.typeExpr(value);
+
+        switch t.t.reduce() {
+          case TFun(_): Context.storeTypedExpr(t);
+          default: macro @:pos(value.pos) function () $value;
+        }
+
       default: value;
     }
   }
