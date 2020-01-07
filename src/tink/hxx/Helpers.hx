@@ -5,6 +5,7 @@ import tink.hxx.Node;
 import haxe.macro.Context;
 import haxe.macro.Type;
 import haxe.macro.Expr;
+using haxe.macro.Tools;
 using StringTools;
 using tink.MacroApi;
 using tink.CoreApi;
@@ -175,26 +176,49 @@ class Helpers {
     }
   }
 
-  static public function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>)
-    return switch r.get().meta.extract(':fromHxx') {
-      case []: None;
-      case [{ params: params }]:
+  static var transformers = new Map<String, Option<Transformer>>();
 
-        var basicType = null,
-            transform = null;
+  static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>):Option<Transformer> {
+    var id = r.toString();
+    return switch transformers[id] {
+      case null:
+        transformers[id] = switch r.get().meta.extract(':fromHxx') {
+          case []: None;
+          case [{ params: params }]:
 
-        for (p in params)
-          switch p {
-            case macro basicType = $e: basicType = e;
-            case macro transform = $e: transform = e;
-            case macro $e = $_: e.reject('unknown option ${e.toString()}');
-            default: p.reject('should be `<name> = <option>`');
-          }
+            var basicType = null,
+                transform = null;
 
-        Some({ basicType: basicType, transform: transform });
+            for (p in params)
+              switch p {
+                case macro basicType = $e: basicType = e;
+                case macro transform = $e: transform = e;
+                case macro $e = $_: e.reject('unknown option ${e.toString()}');
+                default: p.reject('should be `<name> = <option>`');
+              }
 
-      case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
+            Some({
+              reduceType: switch basicType {
+                case null: function (t) return t;
+                case v: function (t:Type) {
+                  var ct = t.toComplex();
+                  return basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
+                }
+              },
+              postprocess: switch transform {
+                case null: function (t, e) return e;
+                case pattern: function (t, e) return pattern.substitute({ _: e });
+              }
+            });
+
+          case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
+        }
+      case v: v;
     }
+  }
+
+  static public function setCustomTransformer(typeID:String, transformer:Transformer)
+    transformers[typeID] = Some(transformer);
 
   static public function applyCustomRules(t:Type, getValue:Type->Expr)
     return
@@ -204,18 +228,12 @@ class Helpers {
            | TEnum(getCustomTransformer(_) => Some(r), _)
            | TType(getCustomTransformer(_) => Some(r), _):
 
-          var ret =
-            if (r.basicType != null) {
-              var ct = t.toComplex();
-              t = r.basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
-              applyCustomRules(t, getValue);
-            }
-            else getValue(t);
-
-          switch r.transform {
-            case null: ret;
-            case e: e.substitute({ _: ret });
+          var ret = switch r.reduceType(t) {
+            case _ == t => true: getValue(t);
+            case t: applyCustomRules(t, getValue);
           }
+
+          r.postprocess(t, ret);
 
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
 
@@ -226,5 +244,10 @@ class Helpers {
           getValue(t);
       }
 
+}
+
+typedef Transformer = {
+  function reduceType(t:Type):Type;
+  function postprocess(expectedType:Type, e:Expr):Expr;
 }
 #end
