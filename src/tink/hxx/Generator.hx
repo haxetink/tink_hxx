@@ -122,19 +122,34 @@ class Generator {
       childList = null;
     }
 
-    var mangled = mangle(attributes, custom, childrenAttribute, switch childList {
-      case null: None;
-      case v:
-        Some(applyCustomRules(tag.args.children, this.childList.bind(v, _)));
-    }, fields, tag.args.custom);
+    attributes = mangle(attributes, custom, fields, tag.args.custom);
 
-    var args = mangled.children.toArray(),
-        tags = localTags;
+    var children = switch childList {
+      case null: None;
+      case l:
+
+        function get()
+          return applyCustomRules(tag.args.children, this.childList.bind(l, _));
+
+        switch childrenAttribute {
+          case null:
+            Some(later(get));
+          case name:
+            attributes.push({
+              name: name,
+              pos: l.pos,
+              getValue: function (t) return get()
+            });
+            None;
+        }
+    }
+
+    var args = children.toArray();
     args.unshift(
-      (function ():Expr {
+      later(function () {
         var attrType = fieldsType.toComplex();
-        return withTags(tags, mergeParts.bind(
-          mangled.attrs,
+        return mergeParts(
+          attributes,
           spreads,
           RStatic([for (f in fields) f.name => ({
             name: f.name,
@@ -163,8 +178,8 @@ class Generator {
             duplicateField: function (name) return 'duplicate attribute $name',
             missingField: function (name) return 'missing attribute $name',//TODO: might be nice to put type here
           }
-        ));
-      }).bounce()
+        );
+      })
     );
 
     if (tag.hxxMeta.keys().hasNext())
@@ -172,6 +187,9 @@ class Generator {
 
     return invoke(tagName, tag.create, args, tagName.pos);
   }
+
+  function later(fn:Void->Expr)
+    return withTags.bind(localTags, fn).bounce();
 
   function makePart(name:StringAt, value:Expr, ?quotes):Part
     return {
@@ -293,7 +311,7 @@ class Generator {
         }
       }
 
-  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, childrenAttribute:Null<String>, children:Option<Expr>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
+  function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
     switch custom {
       case []:
       default:
@@ -342,21 +360,7 @@ class Generator {
         }
     }
 
-    if (childrenAttribute != null)
-      switch children {
-        case Some(e):
-          attrs.push(makePart(
-            { value: childrenAttribute, pos: e.pos },
-            e
-          ));
-          children = None;
-        default:
-      }
-
-    return {
-      attrs: attrs,
-      children: children,
-    }
+    return attrs;
   }
 
   function emptyElse()
