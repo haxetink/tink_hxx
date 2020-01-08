@@ -35,6 +35,7 @@ script:
   - lix run travix node
   - lix run travix python
   - lix run travix java
+  - lix run travix cpp
 
 jobs:
   include:
