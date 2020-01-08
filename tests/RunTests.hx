@@ -211,7 +211,6 @@ class RunTests {
   #end
 
   static function main() {
-
     Runner.run(TestBatch.make([
       new RunTests(),
     ])).handle(Runner.exit);

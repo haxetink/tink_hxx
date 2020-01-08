@@ -435,8 +435,7 @@ class Generator {
 
   var localTags:Map<String, Position->Tag>;
 
-  dynamic function postProcess(e:Expr)
-    return e;
+  var postProcess:Expr->Expr = function (e) return e;
 
   function withTags<T>(tags, f:Void->T) {
     #if tink_syntaxhub var lastFn = postProcess; #end
@@ -446,7 +445,7 @@ class Generator {
       function () {
         localTags = tags;
         #if tink_syntaxhub
-        postProcess =  switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
+        postProcess = switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
           case Some(f): f;
           case None: function (e) return e;
         }

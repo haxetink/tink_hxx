@@ -75,38 +75,7 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Children }) 
   }
 }
 
-@:pure
-abstract Children(Array<Dummy>) from Array<Dummy> {
-  public var length(get, never):Int;
-    inline function get_length()
-      return if (this == null) 0 else this.length;
-
-  @:arrayAccess public inline function get(index:Int)
-    return if (this == null) null else this[index];
-
-  @:from static function ofSingle(r:Dummy):Children
-    return [r];
-
-  public function concat(that:Array<Dummy>):Children
-    return if (this == null) that else this.concat(that);
-
-  public function prepend(r:Dummy):Children
-    return switch [this, r] {
-      case [null, null]: null;
-      case [v, null]: v;
-      case [null, v]: v;
-      case [a, b]: [b].concat(a);
-    }
-
-  public function append(r:Dummy):Children
-    return switch [this, r] {
-      case [null, null]: null;
-      case [v, null]: v;
-      case [null, v]: v;
-      case [a, b]: a.concat([b]);
-    }
-
-}
+typedef Children = Array<Dummy>;
 
 #if macro
 class DummyGen extends tink.hxx.Generator {
