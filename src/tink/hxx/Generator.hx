@@ -470,6 +470,9 @@ class Generator {
   public function root(root:Children):Expr
     return createContext().generateRoot(root);
 
+  static public function normalize(c)
+    return Helpers.normalize(c);
+
 }
 
 typedef GeneratorContext = {
