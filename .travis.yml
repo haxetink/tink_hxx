@@ -30,7 +30,7 @@ script:
   - lix run travix neko
   - lix run travix node
   - lix run travix python
-  - if [ "$HAXE_VERSION" != "3.4.7" ]; lix run travix java -D jvm; fi
+  - if [ "$HAXE_VERSION" != "3.4.7" ]; then lix run travix java -D jvm; fi
   - lix run travix cpp
 
 jobs:
