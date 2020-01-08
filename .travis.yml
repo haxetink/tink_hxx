@@ -16,10 +16,14 @@ os:
   - linux
   # - osx
 
+matrix:
+  allow_failures:
+    - env: HAXE_VERSION=3.4.7
+
 env:
   - HAXE_VERSION=3.4.7
   - HAXE_VERSION=latest
-  
+
 install:
   - npm install
   - npm install lix -g # apparently PATH gets lost further below
