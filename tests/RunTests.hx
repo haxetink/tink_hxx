@@ -144,6 +144,12 @@ class RunTests {
     return asserts.done();
   }
 
+  @:include public function jsxComments() {
+    asserts.assert(Plain.hxx('<div><div>foo</div>${/* some comment here */}<div>bar</div></div>').toString() == '[[foo],[bar]]');
+
+    return asserts.done();
+  }
+
   public function entities() {
     Plain.hxx('<div>Hello, &world;</div>');
     asserts.assert(Plain.hxx('&gt;') == '>');

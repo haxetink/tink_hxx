@@ -102,9 +102,11 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       default: e.map(reenter);
     }
 
-  function parseExpr(source:String, pos) {
+  function parseExpr(source:String, pos:Position, ?mayBeEmpty:Bool) {
     source = ~/\/\*[\s\S]*?\*\//g.replace(source, '');
-    if (source.trim().length == 0) return macro @:pos(pos) null;
+    if (source.trim().length == 0)
+      if (mayBeEmpty) return null;
+      else pos.error('expected expression');
 
     return
       reenter(
@@ -128,9 +130,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       else
         Failure(makeError('expression expected', makePos(pos, pos)));
 
-  function ballancedExpr(open:String, close:String) {
+  function ballancedExpr(open:String, close:String, ?mayBeEmpty:Bool) {
     var src = ballanced(open, close);
-    return parseExpr(src.value, src.pos);
+    return parseExpr(src.value, src.pos, mayBeEmpty);
   }
 
   function ballanced(open:String, close:String) {
@@ -431,7 +433,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
             });
           }
           else
-            expr(ballancedExpr('{', '}'));
+            switch ballancedExpr('{', '}', true) {
+              case null:
+              case e: expr(e);
+            }
 
         case Failure(e):
           this.skipIgnored();
