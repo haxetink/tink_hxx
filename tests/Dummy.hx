@@ -93,13 +93,13 @@ class DummyGen extends tink.hxx.Generator {
           attr.push({
             name: name.value,
             pos: name.pos,
-            getValue: function (_) return macro @:pos(name.pos) true,
+            expr: macro @:pos(name.pos) true,
           });
         case Regular(name, value):
           attr.push({
             name: name.value,
             pos: name.pos,
-            getValue: function (_) return value,
+            expr: value,
           });
       }
 

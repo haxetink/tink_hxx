@@ -114,7 +114,7 @@ class Generator {
               case null:
                 n.name.pos.error('<${tag.name}> does not accept child <${n.name.value}>');//TODO: add suggestions
               case { type: t }:
-                attributes.push(complexAttribute(n));
+                // attributes.push(complexAttribute(n));
             }
           default:
             c.pos.error('Only named tags allowed here');
@@ -138,7 +138,7 @@ class Generator {
             attributes.push({
               name: name,
               pos: l.pos,
-              getValue: function (t) return get()
+              expr: get,
             });
             None;
         }
@@ -155,7 +155,8 @@ class Generator {
             name: f.name,
             pos: f.pos,
             optional: f.meta.has(':optional'),
-            type: Some(f.type),// perhaps do something about params?
+            type: f.type,// perhaps do something about params?
+            ct: f.type.toComplex(),
           }:FieldInfo)]),
           function (name) return switch aliases[name] {
             case null: name;
@@ -168,11 +169,15 @@ class Generator {
               case name = _.indexOf('-') => -1:
                 Failure('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}');
               default:
+                //TODO: technically the complex type can be retrieved
+                var t = Lazy.ofFunc(function () return Context.typeof(macro null));
+                var ct = t.map(function (t) return t.toComplex());
                 Success({
                   name: p.name,
                   pos: p.pos,
                   optional: false,
-                  type: None,
+                  type: t,
+                  ct: ct,
                 });
             },
             duplicateField: function (name) return 'duplicate attribute $name',
@@ -200,16 +205,19 @@ class Generator {
       },
       pos: name.pos,
       quotes: quotes,
-      getValue: function (expected:Option<Type>) {
-        value = postProcess(value);
-        return
-          switch expected {
-            case Some(t):
-              applyCustomRules(t, functionSugar.bind(value));
-            default:
-              value;
-          }
-        }
+      expr: function () {
+        return value;
+      }
+      // getValue: function (expected:Option<Type>) {
+      //   value = postProcess(value);
+      //   return
+      //     switch expected {
+      //       case Some(t):
+      //         applyCustomRules(t, functionSugar.bind(value));
+      //       default:
+      //         value;
+      //     }
+      //   }
     };
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
@@ -226,78 +234,78 @@ class Generator {
   function isOnlyChild(t:Type)
     return !Context.unify(Context.typeof(macro []), t.reduce());
 
-  function complexAttribute(n:Node):Part {
-    var localTags = localTags;
-    return {
-      name: n.name.value,
-      pos: n.name.pos,
-      getValue: function (t)
-        return applyCustomRules(
-          switch t {
-            case None: n.name.pos.error('cannot determine node type');//should not happen, but one never knows
-            case Some(t): t;
-          },
-          function (t:Type)
-            return switch t {
-              case TFun(requiredArgs, ret):
-                var declaredArgs = [for (a in n.attributes) switch a {
-                  case Splat(e):
-                    e.reject('Invalid spread on property ${n.name.value}:$t');
-                  case Empty(name):
-                    name;
-                  case Regular(name, _):
-                    name.pos.error('Invalid attribute on complex property');
-                }];
+  // function complexAttribute(n:Node):Part {
+  //   var localTags = localTags;
+  //   return {
+  //     name: n.name.value,
+  //     pos: n.name.pos,
+  //     getValue: function (t)
+  //       return applyCustomRules(
+  //         switch t {
+  //           case None: n.name.pos.error('cannot determine node type');//should not happen, but one never knows
+  //           case Some(t): t;
+  //         },
+  //         function (t:Type)
+  //           return switch t {
+  //             case TFun(requiredArgs, ret):
+  //               var declaredArgs = [for (a in n.attributes) switch a {
+  //                 case Splat(e):
+  //                   e.reject('Invalid spread on property ${n.name.value}:$t');
+  //                 case Empty(name):
+  //                   name;
+  //                 case Regular(name, _):
+  //                   name.pos.error('Invalid attribute on complex property');
+  //               }];
 
-                var splat = false;
-                var args:Array<FunctionArg> =
-                  switch [requiredArgs.length, declaredArgs.length] {
-                    case [1, 0]:
-                      splat = true;
-                      [{
-                        name: '__data__',
-                        type: requiredArgs[0].t.toComplex(),
-                        opt: requiredArgs[0].opt
-                      }];
-                    case [l, l2] if (l == l2):
-                      [for (i in 0...l) {
-                        name: declaredArgs[i].value,
-                        type: requiredArgs[i].t.toComplex(),
-                        opt: requiredArgs[i].opt
-                      }];
-                    case [l1, l2]:
-                      if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
-                      else n.name.pos.error('not enough arguments');
-                  }
+  //               var splat = false;
+  //               var args:Array<FunctionArg> =
+  //                 switch [requiredArgs.length, declaredArgs.length] {
+  //                   case [1, 0]:
+  //                     splat = true;
+  //                     [{
+  //                       name: '__data__',
+  //                       type: requiredArgs[0].t.toComplex(),
+  //                       opt: requiredArgs[0].opt
+  //                     }];
+  //                   case [l, l2] if (l == l2):
+  //                     [for (i in 0...l) {
+  //                       name: declaredArgs[i].value,
+  //                       type: requiredArgs[i].t.toComplex(),
+  //                       opt: requiredArgs[i].opt
+  //                     }];
+  //                   case [l1, l2]:
+  //                     if (l2 > l1) declaredArgs[l1].pos.error('too many arguments');
+  //                     else n.name.pos.error('not enough arguments');
+  //                 }
 
-                function getBody()
-                  return this.childList(n.children, ret);
+  //               function getBody()
+  //                 return this.childList(n.children, ret);
 
-                var body =
-                  if (splat) {
-                    var tags =
-                      #if haxe4
-                        localTags.copy();
-                      #else
-                        [for (t in localTags.keys()) t => localTags[t]];
-                      #end
+  //               var body =
+  //                 if (splat) {
+  //                   var tags =
+  //                     #if haxe4
+  //                       localTags.copy();
+  //                     #else
+  //                       [for (t in localTags.keys()) t => localTags[t]];
+  //                     #end
 
-                    for (c in requiredArgs[0].t.getFields().sure())
-                      tags[c.name] = Tag.declaration.bind(c.name, _, c.type);
+  //                   for (c in requiredArgs[0].t.getFields().sure())
+  //                     tags[c.name] = Tag.declaration.bind(c.name, _, c.type);
 
-                    macro @:pos(n.name.pos) {
-                      tink.Anon.splat(__data__);
-                      return ${withTags(tags, getBody)};
-                    }
-                  }
-                  else getBody();
-                body.func(args).asExpr();
-              default:
-                childList(n.children, t);
-            }
-        )
-    }
-  }
+  //                   macro @:pos(n.name.pos) {
+  //                     tink.Anon.splat(__data__);
+  //                     return ${withTags(tags, getBody)};
+  //                   }
+  //                 }
+  //                 else getBody();
+  //               body.func(args).asExpr();
+  //             default:
+  //               childList(n.children, t);
+  //           }
+  //       )
+  //   }
+  // }
 
   function childList(c:Children, ?t:Type)
     return
