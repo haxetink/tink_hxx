@@ -154,9 +154,6 @@ class Helpers {
       }
 
     function liftCallback(eventType:Type) {
-      if (value.expr.match(EFunction(_, _)))
-        return value;
-
       var evt = eventType.toComplex();
 
       return dedupe(macro @:pos(value.pos) function (event:$evt) $value);
@@ -208,10 +205,11 @@ class Helpers {
                   return basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
                 }
               },
-              postprocess: switch transform {
-                case null: function (t, e) return e;
-                case pattern: function (t, e) return pattern.substitute({ _: e });
-              }
+              postprocessor:
+                switch transform {
+                  case null: PNone;
+                  case pattern: PUntyped(function (e) return pattern.substitute({ _: e }));
+                }
             });
 
           case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
@@ -223,7 +221,7 @@ class Helpers {
   static public function setCustomTransformer(typeID:String, transformer:Transformer)
     transformers[typeID] = Some(transformer);
 
-  static public function applyCustomRules(t:Type, getValue:Type->Expr)
+  static public function getTransform(t:Type):Transform
     return
       switch t {
         case TAbstract(getCustomTransformer(_) => Some(r), _)
@@ -231,26 +229,85 @@ class Helpers {
            | TEnum(getCustomTransformer(_) => Some(r), _)
            | TType(getCustomTransformer(_) => Some(r), _):
 
-          var ret = switch r.reduceType(t) {
-            case _ == t => true: getValue(t);
-            case t: applyCustomRules(t, getValue);
+          var postprocessor:Postprocessor<Expr->Expr> = switch r.postprocessor {
+            case PTyped(fn): PTyped(fn.bind(t));
+            case PNone: PNone;
+            case PUntyped(fn): PUntyped(fn);
           }
 
-          r.postprocess(t, ret);
-
+          switch r.reduceType(t) {
+            case _ == t => true:
+              {
+                reduced: None,
+                postprocessor: postprocessor,
+              }
+            case reducedType:
+              var inner = getTransform(reducedType);
+              {
+                reduced: switch inner.reduced {
+                  case None: Some(reducedType);
+                  case v: v;
+                },
+                postprocessor: switch [inner.postprocessor, postprocessor] {
+                  case [PNone, v] | [v, PNone]: v;
+                  case [PUntyped(i), PUntyped(o)]:
+                    PUntyped(function (e) return o(i(e)));
+                  case [PUntyped(i) | PTyped(i), PUntyped(o) | PTyped(o)]:
+                    PTyped(function (e) return o(i(e)));
+                }
+              }
+          }
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
-
-          applyCustomRules(t.reduce(true), getValue);
-
+          getTransform(t.reduce(true));
         default:
-
-          getValue(t);
+          NOOP;
       }
+
+  static var NOOP:Transform = {
+    reduced: None,
+    postprocessor: PNone,
+  }
+
+
+  // static public function applyCustomRules(t:Type, getValue:Type->Expr)
+  //   return
+  //     switch t {
+  //       case TAbstract(getCustomTransformer(_) => Some(r), _)
+  //          | TInst(getCustomTransformer(_) => Some(r), _)
+  //          | TEnum(getCustomTransformer(_) => Some(r), _)
+  //          | TType(getCustomTransformer(_) => Some(r), _):
+
+  //         var ret = switch r.reduceType(t) {
+  //           case _ == t => true: getValue(t);
+  //           case t: applyCustomRules(t, getValue);
+  //         }
+
+  //         r.postprocess(t, ret);
+
+  //       case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
+
+  //         applyCustomRules(t.reduce(true), getValue);
+
+  //       default:
+
+  //         getValue(t);
+  //     }
 
 }
 
 typedef Transformer = {
   function reduceType(t:Type):Type;
-  function postprocess(expectedType:Type, e:Expr):Expr;
+  var postprocessor(default, null):Postprocessor<Type->Expr->Expr>;
+}
+
+typedef Transform = {
+  var reduced(default, never):Option<Type>;
+  var postprocessor(default, never):Postprocessor<Expr->Expr>;
+}
+
+enum Postprocessor<T> {
+  PNone;
+  PUntyped(f:Expr->Expr);
+  PTyped(f:T);
 }
 #end
