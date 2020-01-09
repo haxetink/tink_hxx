@@ -39,7 +39,7 @@ class Generator {
   }
 
   function children(c:Children, ?yield:Expr->Expr)
-    return switch [normalize(c.value), yield] {
+    return switch [c.value, yield] {
       case [[], null]: c.pos.error('empty HXX');
       case [[], _]: macro @:pos(c.pos) {};
       case [[v], null]: child(v);
@@ -133,7 +133,7 @@ class Generator {
 
         switch childrenAttribute {
           case null:
-            Some(later(get));
+            Some(get());
           case name:
             attributes.push({
               name: name,
@@ -145,8 +145,12 @@ class Generator {
     }
 
     var args = children.toArray();
+
+    var compute =
+      if (spreads.length > 0) later;
+      else function (fn) return fn();
     args.unshift(
-      later(function () {
+      compute(function () {
         var attrType = fieldsType.toComplex();
         return mergeParts(
           attributes,
@@ -316,6 +320,19 @@ class Generator {
       else {
         var ct = t.toComplex();
         if(isOnlyChild(t)) children(c).as(t.toComplex());
+        else if (requireNoArray(c)) //TODO: this is all still a bit clunky
+          switch c.value {
+            case [v]:
+              [child(v)].toArray(c.pos).as(ct);
+            default:
+              switch this.children(c, function (e) return e) {
+                case e = macro {}: e;
+                case { expr: EBlock(exprs), pos: pos }:
+                  exprs.toArray(pos).as(ct);
+                case e:
+                  throw 'assert';
+              }
+            }
         else macro @:pos(c.pos) {
           var __r = [];
           if (false) (__r:$ct);
@@ -323,6 +340,32 @@ class Generator {
           (__r:$ct);
         }
       }
+
+  static function requireNoArray(c:Children)
+    return switch c {
+      case null: false;
+      case { value: [c] }: requiresNoArray(c);
+      default: false;
+    }
+
+  static function requiresNoArray(c:Child) {
+    return switch c.value {
+      default: false;
+      case CNode(_) | CText(_) | CExpr(_): true;
+      case CIf(_, cons, alt):
+        requireNoArray(cons) && (alt == null || requireNoArray(alt));
+      case CLet(_, c):
+        requireNoArray(c);
+      case CSwitch(_, cases):
+        var ret = true;
+        for (c in cases)
+          if (!requireNoArray(c.children)) {
+            ret = false;
+            break;
+          }
+        ret;
+    }
+  }
 
   function mangle(attrs:Array<Part>, custom:Array<NamedWith<StringAt, Expr>>, fields:Map<String, ClassField>, customRules:Array<CustomAttr>) {
     switch custom {

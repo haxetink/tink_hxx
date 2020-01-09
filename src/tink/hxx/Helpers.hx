@@ -156,7 +156,7 @@ class Helpers {
     function liftCallback(eventType:Type) {
       var evt = eventType.toComplex();
 
-      return dedupe(macro @:pos(value.pos) function (event:$evt) $value);
+      return dedupe.bind(macro @:pos(value.pos) function (event:$evt) $value).bounce();
     };
 
     return switch t.reduce() {
@@ -165,12 +165,15 @@ class Helpers {
       case TFun([{ t: evt }], _.getID() => 'Void'):
         liftCallback(evt);
       case TFun([], _.getID() => 'Void'):
-        var t = Context.typeExpr(value);
 
-        switch t.t.reduce() {
-          case TFun(_): Context.storeTypedExpr(t);
-          default: macro @:pos(value.pos) function () $value;
-        }
+        (function () {
+          var t = Context.typeExpr(value);
+
+          return switch t.t.reduce() {
+            case TFun(_): Context.storeTypedExpr(t);
+            default: macro @:pos(value.pos) function () $value;
+          }
+        }).bounce();
 
       default: value;
     }

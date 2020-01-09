@@ -184,20 +184,20 @@ class RunTests {
   #end
 
   #if haxe4
-  public function inlineMarkup() {
-    var a = [for (i in 0...10) '$i'];
+  // public function inlineMarkup() {
+  //   var a = [for (i in 0...10) '$i'];
 
-    #if tink_parse_unicode
-    NonSense.showOff();
-    #end
+  //   #if tink_parse_unicode
+  //   NonSense.showOff();
+  //   #end
 
-    Plain.hxx(
-      <div key="5">
-        {a.map(x -> <div>{x}</div>)}
-      </div>
-    );
-    return asserts.done();
-  }
+  //   Plain.hxx(
+  //     <div key="5">
+  //       {a.map(x -> <div>{x}</div>)}
+  //     </div>
+  //   );
+  //   return asserts.done();
+  // }
 
   public function keyValueIterator() {
     var map = ['foo' => 'bar'];
