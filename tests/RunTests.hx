@@ -145,7 +145,7 @@ class RunTests {
   }
 
   public function jsxComments() {
-    asserts.assert(Plain.hxx('<div><div>foo</div>{/* some comment here */}<div>bar</div></div>').toString() == '[[foo],[bar]]');
+    asserts.assert(Std.string(Plain.hxx('<div><div>foo</div>{/* some comment here */}<div>bar</div></div>')) == '[[foo],[bar]]');
 
     return asserts.done();
   }
