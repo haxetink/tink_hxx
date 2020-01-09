@@ -145,10 +145,10 @@ class Generator {
     }
 
     var args = children.toArray();
-
     var compute =
       if (spreads.length > 0) later;
       else function (fn) return fn();
+
     args.unshift(
       compute(function () {
         var attrType = fieldsType.toComplex();
@@ -157,7 +157,6 @@ class Generator {
           spreads,
           RStatic([for (f in fields) f.name => ({
             name: f.name,
-            pos: f.pos,
             optional: f.meta.has(':optional'),
             type: Some(f.type),// perhaps do something about params?
           }:FieldInfo)]),
@@ -174,13 +173,12 @@ class Generator {
               default:
                 Success({
                   name: p.name,
-                  pos: p.pos,
                   optional: false,
                   type: None,
                 });
             },
             duplicateField: function (name) return 'duplicate attribute $name',
-            missingField: function (name) return 'missing attribute $name',//TODO: might be nice to put type here
+            missingField: function (f) return 'missing attribute ${f.name}',//TODO: might be nice to put type here
           }
         );
       })
