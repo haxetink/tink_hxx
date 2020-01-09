@@ -15,6 +15,7 @@ using tink.CoreApi;
 typedef ParserConfig = {
   defaultExtension:String,
   treatNested:Children->Expr,
+  ?whitespace:ParseWhitespace,
   ?fragment:String,
   ?defaultSwitchTarget:Expr,
   ?noControlStructures:Bool,
@@ -300,7 +301,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         if (e == null || e.pos == null) null
         else {
           pos: e.pos,
-          value: [{ pos: e.pos, value: CExpr(e) }]
+          value: [{ pos: e.pos, value: CExpr(e) }],
         };
 
     function expr(e:Expr)
@@ -330,7 +331,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       });
 
     function text(slice) {
-      var text = withPos(slice, replaceEntities);
+      var text = getTextRun(slice);
+
       if (text.value.length > 0)
         ret.push({
           pos: text.pos,
@@ -451,6 +453,16 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
     return result();
   };
+
+  function getTextRun(slice:StringSlice)
+    return withPos(slice, function (s, pos) {
+      var ret = replaceEntities(s, pos);
+      return switch config.whitespace {
+        case Jsx: Helpers.trimString(ret);
+        case Trim: ret.trim();
+        case Preserve: ret;
+      }
+    });
 
   function parseSwitch() return located(function () return {
     var target =
@@ -575,5 +587,11 @@ private class Else extends Branch {
     this.elseif = elseif;
   }
 
+}
+
+@:enum abstract ParseWhitespace(Null<Int>) {
+  var Jsx = null;
+  var Trim = 1;
+  var Preserve = 2;
 }
 #end

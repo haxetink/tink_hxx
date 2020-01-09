@@ -515,10 +515,22 @@ Note that if there's exactly one argument, it will be called "event".
 
 ## Whitespace
 
-The treatment of whitespace depends on whether the generated structure even has any notion of whitespace or not. All HXX flavours can rely on `tink.hxx.Helpers.trimString` which handles whitespace in a manner that is quite consistent with JSX:
+The treatment of whitespace depends on whether the generated structure even has any notion of whitespace or not. The default HXX flavor uses the JSX style whitespace explained below.
 
-- white space on a single line makes it to the output
-- white space that includes a line break is ignored
+To customize this, you can pass a different parsing mode to the parser:
+
+- `Jsx` (default)
+- `Trim`: will trim leading and trailing whitespace in text nodes
+- `Preserve`: fully preserves white space
+
+You can also use `tink.hxx.Helpers.trimString` on any string to get JSX style whitespace treatment.
+
+### JSX style whitespace
+
+In JSX, whitespace is treated like so
+
+- whitespace on a single line makes it to the output
+- whitespace that includes a line break is ignored
 
 Example:
 
