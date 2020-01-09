@@ -144,8 +144,8 @@ class RunTests {
     return asserts.done();
   }
 
-  @:include public function jsxComments() {
-    asserts.assert(Plain.hxx('<div><div>foo</div>${/* some comment here */}<div>bar</div></div>').toString() == '[[foo],[bar]]');
+  public function jsxComments() {
+    asserts.assert(Plain.hxx('<div><div>foo</div>{/* some comment here */}<div>bar</div></div>').toString() == '[[foo],[bar]]');
 
     return asserts.done();
   }
