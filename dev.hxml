@@ -2,5 +2,4 @@ tests.hxml
 -D tink_parse_unicode
 -lib travix
 -lib tink_hxx
--js out.js
---no-output
+--interp

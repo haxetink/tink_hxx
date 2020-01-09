@@ -19,7 +19,7 @@ os:
 env:
   - HAXE_VERSION=3.4.7
   - HAXE_VERSION=latest
-  
+
 install:
   - npm install
   - npm install lix -g # apparently PATH gets lost further below
@@ -30,7 +30,8 @@ script:
   - lix run travix neko
   - lix run travix node
   - lix run travix python
-  - lix run travix java
+  - if [ "$HAXE_VERSION" != "3.4.7" ]; then lix run travix java -D jvm; fi
+  - lix run travix cpp
 
 jobs:
   include:

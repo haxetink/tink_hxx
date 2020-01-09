@@ -1,4 +1,9 @@
 package;
+
+#if macro
+import haxe.macro.Expr;
+using tink.MacroApi;
+#end
 import haxe.DynamicAccess;
 
 abstract AttrVal(String) from String to String {
@@ -7,12 +12,12 @@ abstract AttrVal(String) from String to String {
 }
 
 @:forward
-abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy> }) from { name:String, attr:Dynamic<AttrVal>, children:Array<Dummy> } { 
-    
-  static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Array<Dummy>):Dummy
+abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Children }) from { name:String, attr:Dynamic<AttrVal>, children:Children } {
+
+  static public function tag(name:String, attr:Dynamic<AttrVal>, ?children:Children):Dummy
     return { name: name, attr: attr, children: children };
-  
-  public function format():String 
+
+  public function format():String
     return switch this.name {
       case '--text':
         this.attr['content'];
@@ -37,26 +42,26 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
             ret += c.format();
         ret + '</$v>';
     }
-  
-    
-  @:to function toArray():Array<Dummy>
+
+
+  @:to function toArray():Children
     return [this];
-    
-  @:from static public function ofArray(a:Array<Dummy>)
+
+  @:from static public function ofArray(a:Children)
     return tag('', { }, a);
-    
+
   @:from static public function text(s:String):Dummy
     return tag('--text', { content: s }, null);
-    
+
   @:from static public function int(i:Int):Dummy
     return text(Std.string(i));
-  
+
   macro static public function dom(e) {
     var gen = new DummyGen();
-    return 
+    return
       gen.root(
         tink.hxx.Parser.parseRoot(
-          e, 
+          e,
           {
             defaultExtension: 'hxx',
             isVoid: function (s) return switch s.value {
@@ -66,15 +71,17 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Array<Dummy>
             treatNested: gen.root
           }
         )
-      ); 
+      );
   }
 }
 
+typedef Children = Array<Dummy>;
+
 #if macro
 class DummyGen extends tink.hxx.Generator {
-  var childrenType = haxe.macro.ComplexTypeTools.toType(macro : Array<Dummy>);
-  override function node(n:tink.hxx.Node, pos:haxe.macro.Expr.Position) {
+  var childrenType = haxe.macro.ComplexTypeTools.toType(macro : Dummy.Children);
 
+  override function node(n:tink.hxx.Node, pos:Position) {
     var attr:Array<tink.anon.Macro.Part> = [],
         splats = [];
 
@@ -93,15 +100,16 @@ class DummyGen extends tink.hxx.Generator {
             name: name.value,
             pos: name.pos,
             getValue: function (_) return value,
-          });        
+          });
       }
-    
-    var a = tink.anon.Macro.mergeParts(attr, splats, pos, macro : Dynamic<Dummy.AttrVal>);
-    var children = 
+
+    var a = tink.anon.Macro.mergeParts(attr, splats, RDynamic(), pos, macro : Dynamic<Dummy.AttrVal>);
+    var children =
       switch n.children {
         case null | { value: null | [] }: macro null;
-        case v: makeChildren(v, childrenType, false);
+        case v: childList(v, childrenType);
       }
+
     return macro @:pos(pos) Dummy.tag($v{n.name.value}, $a, $children);
   }
 }

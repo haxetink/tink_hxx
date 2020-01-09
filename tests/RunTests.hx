@@ -7,6 +7,7 @@ import Dummy.*;
 import Tags.*;
 
 @:asserts
+@:tink
 class RunTests {
   public function new() {}
 
@@ -162,8 +163,27 @@ class RunTests {
     return asserts.done();
   }
 
-  #if haxe4
+  #if tink_lang
+  public function fatArrow() {
+    var a = [for (i in 0...10) '$i'];
 
+    var plain = Plain.hxx(
+      <div key="5">
+        {a.map(function (x) return x)}
+      </div>
+    );
+    var fat = Plain.hxx(
+      <div key="5">
+        {a.map(x => x)}
+      </div>
+    );
+
+    asserts.assert(compare(plain, fat));
+    return asserts.done();
+  }
+  #end
+
+  #if haxe4
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
 
@@ -191,7 +211,6 @@ class RunTests {
   #end
 
   static function main() {
-
     Runner.run(TestBatch.make([
       new RunTests(),
     ])).handle(Runner.exit);

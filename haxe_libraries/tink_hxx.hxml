@@ -1,6 +1,5 @@
--D tink_hxx=0.13.1
--cp src
-
+-D tink_hxx=dev
 -lib tink_parse
 -lib html-entities
 -lib tink_anon
+-cp src
