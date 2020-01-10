@@ -171,11 +171,11 @@ class Generator {
               case name = _.indexOf('-') => -1:
                 Failure('<${n.name.value}> has no attribute $name${attrType.getFieldSuggestions(name)}');
               default:
-                Success({
+                Success(({
                   name: p.name,
                   optional: false,
                   type: None,
-                });
+                }:FieldInfo));
             },
             duplicateField: function (name) return 'duplicate attribute $name',
             missingField: function (f) return 'missing attribute ${f.name}',//TODO: might be nice to put type here
