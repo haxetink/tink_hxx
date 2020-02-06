@@ -13,6 +13,7 @@ using StringTools;
 @:structInit class Tag {
 
   public var name(default, null):String;
+  public var realPath(default, null):String;
   public var create(default, null):TagCreate;
   public var args(default, null):TagArgs;
   public var isVoid(default, null):Bool;
@@ -196,22 +197,57 @@ using StringTools;
       }
   }
 
+  static public inline var DELEGATE = ':hxx.delegate';
+  static public inline var DISALLOW = ':hxx.disallow';
+
+  static function specialMeta<T:BaseType>(r:haxe.macro.Type.Ref<BaseType>) {
+    var meta = r.get().meta;
+
+    function getSingle(name)
+      return
+        switch meta.extract(name) {
+          case []: None;
+          case [v]: Some(v);
+          case v: v[1].pos.error('Multiple @$name directives');
+        }
+
+    return switch getSingle(DISALLOW) {
+      case Some(v):
+        Some(Failure(switch v.params {
+          case []: '';
+          case [v]: v.getString().sure();
+          case v: v[1].reject('cannot have more than one argument here');
+        }));
+      case None:
+        switch getSingle(DELEGATE) {
+          case Some({ params: [e = macro ($_:$ct)] }):
+            var t = e.pos.getOutcome(ct.toType());
+            Some(Success({ type: t, path: t.getID() }));
+          case Some(m):
+            m.pos.error('@$DELEGATE must have one ECheckType argument');
+          case None: None;
+        }
+    }
+  }
+
   static public function declaration(name:String, pos:Position, type:Type, ?isVoid:Bool):Tag {
 
-    function mk(args, create, callee):Tag {
+    function mk(args, create, callee, ?realPath):Tag {
       if (false)
         TFun(args, null);//force inference
 
+      if (realPath == null)
+        realPath = name;
       var children = null;
 
       function reject(reason):Dynamic
-        return pos.error('Function $callee is not suitable as a hxx tag, because $reason');
+        return pos.error('$name is not suitable as a hxx tag, because $reason');
 
       args = args.copy();
 
       switch args[args.length - 1] {
         case null:
-          reject('accepts no arguments');
+          reject('it accepts no arguments');
         case nfo if (nfo.t.getID(false) == 'haxe.PosInfos'):
           if (!nfo.opt)
             reject('trailing argument ${nfo.name}:haxe.PosInfos is not optional');
@@ -252,54 +288,77 @@ using StringTools;
         hxxMeta: hxxMeta,
         args: args,
         name: name,
+        realPath: realPath,
         isVoid: isVoid,
       }
     }
+
+    function fromType(type:Type, ?realPath:String)
+      return switch type.reduce() {
+        case TEnum(specialMeta(_) => Some(o), _)
+            | TInst(specialMeta(_) => Some(o), _)
+            | TAbstract(specialMeta(_) => Some(o), _):
+
+          switch o {
+            case Success(d):
+              fromType(d.type, d.path);
+            case Failure(v):
+              pos.error('Using ${type.toString()} from HXX is not allowed' + switch v {
+                case null | '': '';
+                default: ', because $v';
+              });
+          }
+
+        case TInst(cl, _) | TAbstract(_.get().impl => cl, _) if (cl != null):
+          var cl = cl.get();
+
+          var options = [FromHxx, New],
+              ret = null;
+
+          function getCtor()
+            return switch cl.kind {
+              case KAbstractImpl(_): cl.findField('_new', true);
+              default: cl.constructor.get();
+            }
+
+          function yield(f:ClassField, kind)
+            return
+              switch f.type.reduce() {
+                case TFun(args, _):
+                  mk(args, kind, '$name.$kind', realPath);
+                case v:
+                  throw 'assert $v';
+              }
+
+          switch cl.findField('fromHxx', true) {
+            case null:
+              switch getCtor() {
+                case null:
+                  pos.error(
+                    if (cl.statics.get().length + cl.fields.get().length == 0)
+                      'There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.'
+                    else
+                      'type $name does not define a suitable constructor of static fromHxx method to be used as HXX'
+                  );
+                case v:
+                  yield(v, New);
+              }
+            case v:
+              yield(v, FromHxx);
+          }
+        case TMono(_.get() => null) if (Context.defined('display')):
+          pos.error('unknown tag $name');
+        default:
+          pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
+
+      }
 
     return
       switch type.reduce() {
         case TFun(args, _):
           mk(args, Call, name);
         default:
-          switch Context.getType(name).reduce() {
-            case TInst(cl, _) | TAbstract(_.get().impl => cl, _) if (cl != null):
-              var cl = cl.get();
-
-              var options = [FromHxx, New],
-                  ret = null;
-
-              function hasCtor()
-                return switch cl.kind {
-                  case KAbstractImpl(_): cl.findField('_new', true) != null;
-                  default: cl.constructor.get() != null;
-                }
-
-              function yield(kind:TagCreate)
-                return
-                  switch '$name.$kind'.resolve(pos).typeof() {
-                    case Success(_.reduce() => TFun(args, _)):
-                      mk(args, kind, '$name.$kind');
-                    default:
-                      throw 'assert';
-                  }
-
-              if (cl.findField('fromHxx', true) != null)
-                yield(FromHxx);
-              else if (hasCtor())
-                yield(New);
-              else
-                pos.error(
-                  if (cl.statics.get().length + cl.fields.get().length == 0)
-                    'There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.'
-                  else
-                    'type $name does not define a suitable constructor of static fromHxx method to be used as HXX'
-                );
-
-            case TMono(_.get() => null) if (Context.defined('display')):
-              pos.error('unknown tag $name');
-            default:
-              pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
-          }
+          fromType(Context.getType(name));
       }
   }
 

@@ -187,7 +187,7 @@ class Generator {
     if (tag.hxxMeta.keys().hasNext())
       args.unshift(EObjectDecl([for (k in specials.keys()) { field: k, expr: specials[k] }]).at(n.name.pos));
 
-    return invoke(tagName, tag.create, args, tagName.pos);
+    return invoke({ value: tag.realPath, pos: tagName.pos }, tag.create, args, tagName.pos);
   }
 
   function later(fn:Void->Expr)
