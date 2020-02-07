@@ -155,11 +155,7 @@ class Generator {
         return mergeParts(
           attributes,
           spreads,
-          RStatic([for (f in fields) f.name => ({
-            name: f.name,
-            optional: f.meta.has(':optional'),
-            type: Some(f.type),// perhaps do something about params?
-          }:FieldInfo)]),
+          RStatic(fieldsToInfos(fields)),
           function (name) return switch aliases[name] {
             case null: name;
             case v: v;
@@ -174,6 +170,7 @@ class Generator {
                 Success(({
                   name: p.name,
                   optional: false,
+                  write: WPlain,//doesn't really matter because it is marked non-optional
                   type: None,
                 }:FieldInfo));
             },
