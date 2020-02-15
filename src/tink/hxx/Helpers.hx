@@ -271,31 +271,6 @@ class Helpers {
     postprocessor: PNone,
   }
 
-
-  // static public function applyCustomRules(t:Type, getValue:Type->Expr)
-  //   return
-  //     switch t {
-  //       case TAbstract(getCustomTransformer(_) => Some(r), _)
-  //          | TInst(getCustomTransformer(_) => Some(r), _)
-  //          | TEnum(getCustomTransformer(_) => Some(r), _)
-  //          | TType(getCustomTransformer(_) => Some(r), _):
-
-  //         var ret = switch r.reduceType(t) {
-  //           case _ == t => true: getValue(t);
-  //           case t: applyCustomRules(t, getValue);
-  //         }
-
-  //         r.postprocess(t, ret);
-
-  //       case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
-
-  //         applyCustomRules(t.reduce(true), getValue);
-
-  //       default:
-
-  //         getValue(t);
-  //     }
-
 }
 
 typedef Transformer = {
