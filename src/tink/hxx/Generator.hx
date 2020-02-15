@@ -151,7 +151,7 @@ class Generator {
 
     args.unshift(
       compute(function () {
-        var attrType = fieldsType.toComplex();
+        var attrType = fieldsType.toComplex({ direct: true });
         return mergeParts(
           attributes,
           spreads,
