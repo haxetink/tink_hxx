@@ -151,11 +151,13 @@ class Generator {
 
     args.unshift(
       compute(function () {
-        var attrType = fieldsType.toComplex({ direct: true });
+        var paramatrized = tag.parametrized();
+        var attrType = paramatrized.fieldsType;
+
         return mergeParts(
           attributes,
           spreads,
-          RStatic(fieldsToInfos(fields)),
+          paramatrized.requiredFields,
           function (name) return switch aliases[name] {
             case null: name;
             case v: v;
@@ -293,7 +295,7 @@ class Generator {
                       #end
 
                     for (c in requiredArgs[0].t.getFields().sure())
-                      tags[c.name] = Tag.declaration.bind(c.name, _, c.type);
+                      tags[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params);
 
                     macro @:pos(n.name.pos) {
                       tink.Anon.splat(__data__);

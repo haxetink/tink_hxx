@@ -1,6 +1,7 @@
 package tink.hxx;
 
 #if macro
+import tink.anon.Macro;
 import haxe.macro.Context;
 import haxe.macro.Type;
 import haxe.macro.Expr;
@@ -18,6 +19,11 @@ using StringTools;
   public var args(default, null):TagArgs;
   public var isVoid(default, null):Bool;
   public var hxxMeta(default, null):Map<String, Type>;
+
+  public var parametrized(default, null):Void->{
+    var fieldsType(default, null):ComplexType;
+    var requiredFields(default, null):RequireFields;
+  }
 
   static function startsCapital(s:String)
     return s.charAt(0).toUpperCase() == s.charAt(0);
@@ -37,25 +43,25 @@ using StringTools;
         if (found == null)
           name.pos.makeFailure('unknown tag <${name.value}>');
         else
-          Success((localTags[name.value] = declaration.bind(name.value, _, found))(name.pos));
+          Success((localTags[name.value] = declaration.bind(name.value, _, found, []))(name.pos));
       case get: Success(get(name.pos));
     }
 
   static public function getAllInScope(defaults:Lazy<Array<Named<Position->Tag>>>) {
     var localTags = new Map();
-    function add(name:String, type)
+    function add(name:String, type, params)
       if (name.charAt(0) != '_')//seems reasonable
         localTags[name] = {
           var ret = null;
           function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
             if (ret == null)
-              ret = declaration(name, pos, type);
+              ret = declaration(name, pos, type, params);
             return ret;
           }
         }
     var vars = Context.getLocalVars();
     for (name in vars.keys())
-      add(name, vars[name]);
+      add(name, vars[name], []);
 
     switch Context.getLocalType() {
       case null:
@@ -67,9 +73,9 @@ using StringTools;
         if (fields.exists(method) || method == 'new')
           for (f in fields)
             if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic)))
-              add(f.name, f.type);
+              add(f.name, f.type, f.params);
         for (f in statics)
-          add(f.name, f.type);
+          add(f.name, f.type, f.params);
 
       default:
     }
@@ -103,7 +109,7 @@ using StringTools;
     return localTags;
   }
 
-  static function makeArgs(pos:Position, name:String, t:Type, ?children:Type):TagArgs {
+  static function makeArgs(pos:Position, name:String, t:Type, params:Array<TypeParameter>, ?children:Type):TagArgs {
     function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs {
       var fields = new Map(),
           aliases = new Map(),
@@ -230,9 +236,9 @@ using StringTools;
     }
   }
 
-  static public function declaration(name:String, pos:Position, type:Type, ?isVoid:Bool):Tag {
+  static public function declaration(name:String, pos:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
 
-    function mk(args, create, callee, ?realPath):Tag {
+    function mk(args, create, callee, params, ?realPath):Tag {
       if (false)
         TFun(args, null);//force inference
 
@@ -274,7 +280,7 @@ using StringTools;
         default: reject('defines too many arguments');
       }
 
-      var args = makeArgs(pos, name, attr, children);
+      var args = makeArgs(pos, name, attr, params, children);
       for (keys in [args.aliases.keys(), args.fields.keys()])
         for (k in keys)
           if (hxxMeta.exists(k))
@@ -290,6 +296,29 @@ using StringTools;
         name: name,
         realPath: realPath,
         isVoid: isVoid,
+        parametrized: switch params {
+          case []:
+            var ret = {
+              fieldsType: args.fieldsType.toComplex({ direct: true }),
+              requiredFields: RStatic(Macro.fieldsToInfos(args.fields)),
+            }
+            function () return ret;
+          default:
+            function () {
+              var ct = args.fieldsType.reduce().applyTypeParameters(params, [for (t in params) Context.typeof(macro cast null)]).toComplex({ direct: true });
+              var placeholder = macro (cast null : $ct);
+              return {
+                fieldsType: ct,
+                requiredFields: RStatic(Macro.fieldsToInfos(
+                  args.fields,
+                  function (f) {
+                    var name = f.name;
+                    return Context.typeof(macro $placeholder.$name);
+                  }
+                ))
+              }
+            }
+        }
       }
     }
 
@@ -325,7 +354,7 @@ using StringTools;
             return
               switch f.type.reduce() {
                 case TFun(args, _):
-                  mk(args, kind, '$name.$kind', realPath);
+                  mk(args, kind, '$name.$kind', f.params, realPath);
                 case v:
                   throw 'assert $v';
               }
@@ -356,7 +385,7 @@ using StringTools;
     return
       switch type.reduce() {
         case TFun(args, _):
-          mk(args, Call, name);
+          mk(args, Call, name, []);
         default:
           fromType(Context.getType(name));
       }
@@ -391,7 +420,7 @@ using StringTools;
             var decl = null;
             function make(pos) {
               if (decl == null)
-                decl = declaration('$name.${f.name}', pos, f.type, f.meta.extract(':voidTag').length > 0);
+                decl = declaration('$name.${f.name}', pos, f.type, f.params, f.meta.extract(':voidTag').length > 0);
               return decl;
             }
 
