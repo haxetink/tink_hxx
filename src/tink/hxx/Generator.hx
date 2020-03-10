@@ -287,19 +287,29 @@ class Generator {
 
                 var body =
                   if (splat) {
-                    var tags =
-                      #if haxe4
-                        localTags.copy();
-                      #else
-                        [for (t in localTags.keys()) t => localTags[t]];
-                      #end
+                    var tags = switch requiredArgs[0].t.getFields() {
+                      case Success(fields):
+                        var ret =
+                          #if haxe4
+                            localTags.copy();
+                          #else
+                            [for (t in localTags.keys()) t => localTags[t]];
+                          #end
 
-                    for (c in requiredArgs[0].t.getFields().sure())
-                      tags[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params);
+                        for (c in fields)
+                          ret[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params);
+
+                        ret;
+                      default:
+                        localTags;
+                    }
 
                     macro @:pos(n.name.pos) {
                       tink.Anon.splat(__data__);
-                      return ${withTags(tags, getBody)};
+                      return ${
+                        if (tags != localTags) withTags(tags, getBody)
+                        else later(withTags.bind(tags, getBody))
+                      };
                     }
                   }
                   else getBody();
