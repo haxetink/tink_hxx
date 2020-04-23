@@ -563,3 +563,17 @@ By default the file name is resolved relatively to the call site, so you can put
 Some people will argue that "templates" should all be in one place and all code in another, but that's like "ordering" the information in a magazine by putting all pictures in one place and all text in another. Quite simply, you should not be doing such a thing. But if you know better, you may refer to the file by starting with `./` in which case resolution is performed relative to project root - actually to the working directory of the compilation process to be more exact.
 
 If you specify no extension in the file name, then `.hxx` is assumed by default (unless you're using an HXX flavor that alters this).
+
+## Inline Markup
+
+It's possible for tink_hxx to also process the inline markup literals added in Haxe 4.
+
+In that case, you may intermix markup and expression more freely, e.g.
+
+```haxe
+<ul>
+  {for (city in cities)
+    <li><b>{city.name}</b>: {city.pop} inhabitants</li>
+  }
+</ul>
+```
