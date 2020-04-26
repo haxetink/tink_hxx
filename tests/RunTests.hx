@@ -5,6 +5,7 @@ import tink.unit.*;
 import tink.testrunner.*;
 import Dummy.*;
 import Tags.*;
+import stuff.Concat;
 
 @:asserts
 @:tink
@@ -145,7 +146,7 @@ class RunTests {
   }
 
   public function issue36() {
-    var concat = new Concat();
+    var concat = new InstConcat();
     asserts.assert(Plain.hxx('<concat a="a" b="b" />') == 'ab');
 
     var concat = {
@@ -156,6 +157,8 @@ class RunTests {
 
     var concat = new AlsoConcat();
     asserts.assert(Plain.hxx('<concat a="x" b="y" />') == 'xy');
+    asserts.assert(Plain.hxx('<Concat a="x" b="y" />') == 'xy');
+    asserts.assert(Plain.hxx('<stuff.Concat a="x" b="y" />') == 'xy');
 
     return asserts.done();
   }
@@ -240,10 +243,10 @@ class RunTests {
 
 }
 
-private class Concat {
+private class InstConcat {
   public function new() {}
   public function fromHxx(attr)
-    return '${attr.a}${attr.b}';
+    return Concat.fromHxx(attr);
 }
 
 
