@@ -181,6 +181,28 @@ class RunTests {
     return asserts.done();
   }
 
+  static function unique(attr:{})
+    return {};
+
+  public function constantExtraction() {
+    function same()
+      return Plain.hxx('<unique />');
+
+    #if tink_hxx_extract_constants
+    asserts.assert(same() == same());
+    #else
+    asserts.assert(same() != same());
+    #end
+    var unique = unique;
+
+    function same()
+      return Plain.hxx('<unique />');
+
+    asserts.assert(same() != same());
+
+    return asserts.done();
+  }
+
   public function dotPaths() {
     function identity(x)
       return x;

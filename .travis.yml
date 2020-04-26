@@ -27,8 +27,10 @@ install:
 
 script:
   - lix run travix interp
+  - lix run travix interp -D tink_hxx_extract_constants
   - lix run travix neko
   - lix run travix node
+  - lix run travix node -D tink_hxx_extract_constants
   - lix run travix python
   - if [ "$HAXE_VERSION" != "3.4.7" ]; then lix run travix java -D jvm; fi
   - lix run travix cpp

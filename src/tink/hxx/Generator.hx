@@ -308,7 +308,7 @@ class Generator {
                       tink.Anon.splat(__data__);
                       return ${
                         if (tags != localTags) withTags(tags, getBody)
-                        else later(withTags.bind(tags, getBody))
+                        else later(withTags.bind(tags, getBody)) // TODO: should probably just be `later(getBody)`
                       };
                     }
                   }
@@ -429,7 +429,18 @@ class Generator {
   function emptyElse()
     return macro null;
 
-  function child(c:Child, ?yield:Expr->Expr) {
+  function justChild(c)
+    return child(c);
+
+  function child(c:Child, ?yield:Expr->Expr):Expr {
+
+    switch constants.extract(c, justChild) {
+      case Some(v):
+        return
+          if (yield == null) v;
+          else yield(v);
+      default:
+    }
 
     inline function children(v:Children)
       return this.children(switch v {
@@ -504,6 +515,7 @@ class Generator {
     var last = localTags;
     return tink.core.Error.tryFinally(
       function () {
+        constants.init();
         localTags = tags;
         #if tink_syntaxhub
         postProcess = switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
@@ -514,11 +526,14 @@ class Generator {
         return f();
       },
       function () {
+        constants.flush();
         localTags = last;
         #if tink_syntaxhub postProcess = lastFn; #end
       }
     );
   }
+
+  var constants = new ConstantExtractor();
 
   public function createContext():GeneratorContext {
     var tags = Tag.getAllInScope(defaults);
@@ -539,5 +554,67 @@ class Generator {
 typedef GeneratorContext = {
   function isVoid(name:StringAt):Bool;
   function generateRoot(root:Children):Expr;
+}
+
+private class ConstantExtractor {
+
+  static var enabled =
+    Context.defined('tink_hxx_extract_constants')
+    && !Context.defined('display')
+    && !Context.defined('display-details');
+
+  static var verbose = Context.defined('tink_hxx_extract_constants_verbose');
+
+  var isConstant = !enabled;
+  var fields = [];
+  var name = '';
+
+  public function new() {}
+
+  public function init() {
+    do {
+      name = 'Constants' + MacroApi.tempName();
+    } while (name.definedType() != None);
+  }
+
+  public function flush()
+    if (fields.length > 0 && name.definedType() == None)
+      Context.defineType({
+        name: name,
+        pos: (macro null).pos,
+        kind: TDClass(),
+        pack: [],
+        fields: fields,
+      });
+
+  function tooSmall(c:Child) // TODO: perhaps something simpler could be used for this
+    return c.value.match(CText(_) | CExpr(_));
+
+  public function extract(c:Child, build:Child->Expr)
+    return
+      if (!isConstant && c.isConstant.get() && !tooSmall(c)) {
+
+        isConstant = true;
+
+        var expr = Context.storeTypedExpr(Context.typeExpr(build(c))),
+            name = 'f${fields.length}';
+
+        if (verbose)
+          c.pos.warning('constant markup will be extracted');
+
+        isConstant = false;
+
+        fields.push({
+          name: name,
+          pos: c.pos,
+          kind: FProp('default', 'never', null, expr),
+          access: [APublic, AStatic],
+        });
+
+        Some(macro @:pos(c.pos) $i{this.name}.$name);
+      }
+      else None;
+
+  static var IS_CONST:Lazy<Bool> = true;
 }
 #end
