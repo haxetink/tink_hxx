@@ -566,7 +566,7 @@ private class ConstantExtractor {
   static var verbose = Context.defined('tink_hxx_extract_constants_verbose');
 
   var isConstant = !enabled;
-  var fields = [];
+  var fields = new Array<Field>();
   var name = '';
 
   public function new() {}
@@ -577,7 +577,7 @@ private class ConstantExtractor {
     } while (name.definedType() != None);
   }
 
-  public function flush()
+  public function flush() {
     if (fields.length > 0 && name.definedType() == None)
       Context.defineType({
         name: name,
@@ -586,6 +586,8 @@ private class ConstantExtractor {
         pack: [],
         fields: fields,
       });
+    fields = [];
+  }
 
   function tooSmall(c:Child) // TODO: perhaps something simpler could be used for this
     return c.value.match(CText(_) | CExpr(_));
