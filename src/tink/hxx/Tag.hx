@@ -382,12 +382,36 @@ using StringTools;
 
       }
 
-    return
-      switch type.reduce() {
+    function hasField(name) {
+      for (f in type.getFields(false).sure())
+        if (f.name == name)
+          return true;
+      return false;
+    }
+
+    function instanceMethod()
+      return
+        switch Context.typeof(macro @:pos(pos) $i{name}.fromHxx).reduce() {
+          case TFun(args, _):
+            mk(args, Call, name, [], '$name.fromHxx');
+          case v:
+            pos.error('$name.fromHxx should be a function, but it is a ${v.toString()}');
+        }
+
+    while (true)
+      switch type {
+        case TType(_.get() => { pack: [], name: 'Class' | 'Enum' }, [_]):
+          return fromType(Context.getType(name));
         case TFun(args, _):
-          mk(args, Call, name, []);
+          return mk(args, Call, name, []);
+        case TLazy(_) | TType(_):
+          type = type.reduce(true);
+        case TInst(_) | TAnonymous(_) if (hasField('fromHxx')):
+          return instanceMethod();
+        case TAbstract(_.get().impl => cl, _) if (cl != null && cl.get().findField('fromHxx', true) != null):
+          return instanceMethod();
         default:
-          fromType(Context.getType(name));
+          pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
       }
   }
 

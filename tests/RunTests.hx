@@ -144,6 +144,22 @@ class RunTests {
     return asserts.done();
   }
 
+  public function issue36() {
+    var concat = new Concat();
+    asserts.assert(Plain.hxx('<concat a="a" b="b" />') == 'ab');
+
+    var concat = {
+      fromHxx: concat.fromHxx,
+    }
+
+    asserts.assert(Plain.hxx('<concat a="1" b="2" />') == '12');
+
+    var concat = new AlsoConcat();
+    asserts.assert(Plain.hxx('<concat a="x" b="y" />') == 'xy');
+
+    return asserts.done();
+  }
+
   public function jsxComments() {
     asserts.assert(Std.string(Plain.hxx('<div><div>foo</div>{/* some comment here */}<div>bar</div></div>')) == '[[foo],[bar]]');
 
@@ -222,4 +238,17 @@ class RunTests {
     ])).handle(Runner.exit);
   }
 
+}
+
+private class Concat {
+  public function new() {}
+  public function fromHxx(attr)
+    return '${attr.a}${attr.b}';
+}
+
+
+abstract AlsoConcat(Int) {
+  public function new() this = 42;
+  public function fromHxx(attr)
+    return '${attr.a}${attr.b}';
 }
