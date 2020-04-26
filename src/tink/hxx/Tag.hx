@@ -398,6 +398,8 @@ using StringTools;
             pos.error('$name.fromHxx should be a function, but it is a ${v.toString()}');
         }
 
+    var orig = type;
+
     while (true)
       switch type {
         case TType(_.get() => { pack: [], name: 'Class' | 'Enum' }, [_]):
@@ -411,7 +413,7 @@ using StringTools;
         case TAbstract(_.get().impl => cl, _) if (cl != null && cl.get().findField('fromHxx', true) != null):
           return instanceMethod();
         default:
-          pos.error('$name has type ${type.toString()} which is unsuitable for HXX');
+          pos.error('$name has type ${orig.toString()} which is unsuitable for HXX');
       }
   }
 
