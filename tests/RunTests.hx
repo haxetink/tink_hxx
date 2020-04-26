@@ -155,6 +155,12 @@ class RunTests {
 
     asserts.assert(Plain.hxx('<concat a="1" b="2" />') == '12');
 
+    var wrapped = {
+      concat: concat
+    };
+
+    asserts.assert(Plain.hxx('<wrapped.concat a="1" b="2" />') == '12');
+
     var concat = new AlsoConcat();
     asserts.assert(Plain.hxx('<concat a="x" b="y" />') == 'xy');
     asserts.assert(Plain.hxx('<Concat a="x" b="y" />') == 'xy');

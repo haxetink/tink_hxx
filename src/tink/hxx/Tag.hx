@@ -31,7 +31,6 @@ using StringTools;
   static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
     return switch localTags[name.value] {
       case null:
-
         var found = Context.getLocalVars()[name.value];
 
         if (found == null) {
@@ -391,7 +390,7 @@ using StringTools;
 
     function instanceMethod()
       return
-        switch Context.typeof(macro @:pos(pos) $i{name}.fromHxx).reduce() {
+        switch Context.typeof(macro @:pos(pos) ${name.resolve()}.fromHxx).reduce() {
           case TFun(args, _):
             mk(args, Call, name, [], '$name.fromHxx');
           case v:
