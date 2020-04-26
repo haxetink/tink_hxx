@@ -5,45 +5,53 @@ import tink.hxx.Node;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import haxe.macro.Context;
+
 using haxe.macro.Tools;
+using tink.MacroApi;
 
 class IsConstant {
   static function isPure(c:ClassType)
     return c.meta.has(':pure');
 
-  static function field(f:ClassField)
+  static function isFinal(f:ClassField)
     return
       #if haxe4 f.isFinal || #end f.kind.match(FVar(AccNormal | AccInline, AccNever));
+
+  static function texpr(e:TypedExpr, ?field) {
+    if (field == null)
+      field = isFinal;
+    var isConst = true;
+
+    function crawl(e:TypedExpr)
+      if (e != null && isConst)
+        switch e.expr {
+          case TField(e, FInstance(_, _, c) | FStatic(_, c) | FAnon(c)) if (field(c.get())):
+            crawl(e);
+          case TNew(c, _, el) if (isPure(c.get())):
+            for (e in el)
+              crawl(e);
+          //TODO: pure calls
+          case TConst(TThis)
+              | TLocal(_)
+              | TCall(_)
+              | TField(_)
+              | TBinop(OpAssign | OpAssignOp(_), _)
+              : isConst = false;
+          default: e.iter(crawl);
+        }
+
+    crawl(e);
+
+    return isConst;
+  }
 
   static public function expr(e:Expr) {
     var isConst = true;
 
     function typed(e:Expr) {
-      function crawl(e:TypedExpr)
-        if (e != null && isConst)
-          switch e.expr {
-            case TField(e, FInstance(_, _, c) | FStatic(_, c) | FAnon(c)) if (field(c.get())):
-              crawl(e);
-            case TNew(c, _, el) if (isPure(c.get())):
-              for (e in el)
-                crawl(e);
-            //TODO: pure calls
-            case TConst(TThis)
-               | TLocal(_)
-               | TCall(_)
-               | TField(_)
-               | TBinop(OpAssign | OpAssignOp(_), _)
-               : isConst = false;
-            default: e.iter(crawl);
-          }
-
-      crawl(
-        try Context.typeExpr(e)
-        catch (e:Dynamic) {
-          isConst = false;
-          null;
-        }
-      );
+      isConst = false;
+      try isConst = texpr(Context.typeExpr(e))
+      catch (e:Dynamic) {}
     }
     function crawl(e:Expr)
       if (e != null && isConst) switch e.expr {
@@ -77,7 +85,15 @@ class IsConstant {
   }
 
   static function name(name:StringAt)
-    return true;//this may actually refer to a variable
+    try {
+      return texpr(
+        Context.typeExpr(name.value.resolve(name.pos)),
+        function (f) return isFinal(f) || f.kind.match(FMethod(_))
+      );
+    }
+    catch (e:Dynamic) {
+      return false;
+    }
 
   static public function kind(n:ChildKind)
     return switch n {
