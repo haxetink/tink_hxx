@@ -14,8 +14,13 @@ enum ChildKind {
   CSplat(e:Expr);
 }
 
+private typedef ChildData = {>Located<ChildKind>,
+  var isConstant(default, null):Lazy<Bool>;
+}
+
 @:forward
-abstract Child(Located<ChildKind>) from Located<ChildKind> to Located<ChildKind> {
+abstract Child(ChildData) from ChildData to ChildData {
+
   public function map(fn:Child->Child):Child {
     function rec(c:Children)
       return switch c {
@@ -51,6 +56,13 @@ abstract Child(Located<ChildKind>) from Located<ChildKind> to Located<ChildKind>
     }
     return apply(this);
   }
+
+  @:from static function ofLocated(l:Located<ChildKind>):Child
+    return {
+      pos: l.pos,
+      value: l.value,
+      isConstant: Lazy.ofFunc(function () return #if macro IsConstant.kind(l.value) #else false #end),
+    }
 }
 
 typedef Node = {

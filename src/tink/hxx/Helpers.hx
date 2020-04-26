@@ -78,7 +78,7 @@ class Helpers {
       }
   }
 
-  static public function normalize(children:Array<Child>)
+  static public function normalize(children:Array<Child>):Array<Child>
     return switch children {
       case null: [];
       default:
