@@ -402,7 +402,7 @@ using StringTools;
 
     while (true)
       switch type {
-        case TType(_.get() => { pack: [], name: 'Class' | 'Enum' }, [_]):
+        case TType(_.get() => { pack: [], name: t }, []) if (t.startsWith('Class<') || t.startsWith('Enum<')):
           return fromType(Context.getType(name));
         case TFun(args, _):
           return mk(args, Call, name, []);
