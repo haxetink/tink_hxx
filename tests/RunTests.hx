@@ -169,6 +169,13 @@ class RunTests {
     return asserts.done();
   }
 
+  public function test37() {
+    asserts.assert(Plain.hxx('<>foo$${blargh}bar</>').join(',') == 'foo$${blargh}bar');
+    asserts.assert(Plain.hxx('<>foo\\{blargh}bar</>').join(',') == 'foo{blargh}bar');
+
+    return asserts.done();
+  }
+
   public function jsxComments() {
     asserts.assert(Std.string(Plain.hxx('<div><div>foo</div>{/* some comment here */}<div>bar</div></div>')) == '[[foo],[bar]]');
 

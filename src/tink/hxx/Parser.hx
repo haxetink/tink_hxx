@@ -332,19 +332,47 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
         }
       });
 
-    function text(slice) {
+    var fusing = false;
+    function addText(slice, fuse) {
+      var shouldFuse = fusing || fuse;
+      fusing = fuse;
       var text = getTextRun(slice);
+      if (text.value.length > 0) {
+        if (shouldFuse && ret.length > 0)
+          switch ret[ret.length - 1] {
+            case { pos: prevPos, value: CText({ value: prevText }) }:
+              var p1 = Context.getPosInfos(prevPos),
+                  p2 = Context.getPosInfos(text.pos);
 
-      if (text.value.length > 0)
+              if (p1.file == p2.file) {
+
+                var pos = Context.makePosition({
+                  file: p1.file,
+                  min: p1.min,
+                  max: p1.max,
+                });
+
+                ret[ret.length - 1] = {
+                  pos: pos,
+                  value: CText({ pos: pos, value: prevText + text.value }),
+                };
+                return;
+              }
+            default:
+          }
         ret.push({
           pos: text.pos,
           value: CText(text)
         });
+      }
     }
+
+    function text(slice)
+      addText(slice, false);
 
     while (pos < max) {
 
-      switch first(["${", "$", "{", "<"], text) {
+      switch first(["${", "$${", "$$", '\\{', "$", "{", "<"], text) {
         case Success("<"):
           if (allowHere('!--'))
             upto('-->', true).sure();
@@ -392,6 +420,10 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
           else
             ret.push(parseChild());
 
+        case Success(v = "$${" | "$$"):
+          addText(source[pos-v.length+1...pos], true);
+        case Success('\\{'):
+          addText(source[pos-1...pos], true);
         case Success("$"):
 
           expr(simpleIdent());
