@@ -344,7 +344,9 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
 
     while (pos < max) {
 
-      switch first(["${", "$", "{", "<"], text) {
+      switch first(["\\{", "${", "$", "{", "<"], text) {
+        case Success("\\{"):
+          text("{");
         case Success("<"):
           if (allowHere('!--'))
             upto('-->', true).sure();
