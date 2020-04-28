@@ -543,10 +543,20 @@ Example:
   <span>Hello</span>
   <span>World</span>
 </p>
+
+
 ```
 
-The first version will retain the white space between the two spans, the second one will not.
+The first version will retain the white space between the two spans, the second one will not.  
 
+To enforce a whitspace, `${' '}` can be used, e.g.:
+
+```html
+<p>
+  <span>Hello</span>${' '}
+  <span>World</span>
+</p>
+```
 
 ## Imports
 
