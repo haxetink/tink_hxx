@@ -2,9 +2,11 @@ package tink.hxx;
 
 #if macro
 import haxe.macro.Expr;
-import tink.hxx.Node;
 import tink.parse.Char.*;
 import tink.parse.*;
+import tink.hxx.Node;
+import tink.hxx.Located;
+
 import haxe.macro.Context;
 
 using StringTools;
@@ -339,7 +341,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
       var text = getTextRun(slice);
       if (text.value.length > 0) {
         if (shouldFuse && ret.length > 0)
-          switch ret[ret.length - 1] {
+          switch (ret[ret.length - 1]:Located<ChildKind>) {
             case { pos: prevPos, value: CText({ value: prevText }) }:
               var p1 = Context.getPosInfos(prevPos),
                   p2 = Context.getPosInfos(text.pos);
