@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.24.0",
-	"releasenote": "Support fromHxx instance methods.",
+	"version": "0.24.1",
+	"releasenote": "Support escaping '$' and '{'.",
 	"tags": [
 		"tink",
 		"hxx",
