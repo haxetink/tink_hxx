@@ -153,11 +153,17 @@ class Helpers {
         case v: throw "assert";
       }
 
-    function liftCallback(eventType:Type) {
-      var evt = eventType.toComplex();
+    function liftCallback(eventType:Type)
+      return (function () {
+        if (!value.has(function (e) return switch e {
+          case macro event: true;
+          default: false;
+        })) value = Context.storeTypedExpr(Context.typeExpr(value));
 
-      return dedupe.bind(macro @:pos(value.pos) function (event:$evt) $value).bounce();
-    };
+        var evt = eventType.toComplex();
+
+        return dedupe(macro @:pos(value.pos) function (event:$evt):Void $value);
+      }).bounce();
 
     return switch t.reduce() {
       case TAbstract(_.get() => { pack: ['tink', 'core'], name: 'Callback' }, [evt]):
@@ -175,7 +181,7 @@ class Helpers {
           }
         }).bounce();
 
-      default: value;
+      case v: value;
     }
   }
 
