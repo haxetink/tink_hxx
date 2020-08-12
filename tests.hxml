@@ -1,5 +1,6 @@
 -lib tink_stringly
 -lib deep_equal
 -lib tink_unittest
+-D no-deprecation-warnings
 -cp tests
 -main RunTests
