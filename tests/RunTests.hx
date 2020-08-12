@@ -51,6 +51,14 @@ class RunTests {
     return asserts.done();
   }
 
+  public function issue44() {
+    function button(a:{ ?onclick:Int->Void })
+      return a.onclick;
+    function click(_:Int) {}
+    asserts.assert(Plain.hxx('<button onclick=${false ? null : click} />') == click);
+    return asserts.done();
+  }
+
   public function splat() {
     var o1 = { foo: 'o1', bar: '123' };
     var o2 = { foo: 'o2', baz: 'o2' };
