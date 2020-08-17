@@ -10,7 +10,7 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.24.1",
+	"version": "0.24.2",
 	"releasenote": "Fix automatic function wrapping.",
 	"tags": [
 		"tink",
