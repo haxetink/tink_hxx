@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.24.2",
-	"releasenote": "Fix automatic function wrapping.",
+	"version": "0.24.3",
+	"releasenote": "Fix function sugar.",
 	"tags": [
 		"tink",
 		"hxx",
