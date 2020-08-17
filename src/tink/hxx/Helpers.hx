@@ -140,25 +140,29 @@ class Helpers {
     function dedupe(e:Expr)
       return switch Context.typeExpr(e) {
         case typed = { expr: TFunction(f) }:
-          Context.storeTypedExpr(
-            switch Context.follow(f.expr.t) {
-              case TFun(_, _): f.expr;
-              case TDynamic(null):
-                value.reject('Cannot use `Dynamic` as callback');
-              case found:
-                if (Context.unify(found, t)) f.expr;
-                else typed;
-            }
-          );
+
+          switch Context.follow(f.expr.t) {
+            case TFun(_, _): Context.storeTypedExpr(f.expr);
+            case TDynamic(null):
+              value.reject('Cannot use `Dynamic` as callback');
+            case found:
+              if (Context.unify(found, t)) Context.storeTypedExpr(f.expr);
+              else if (typed.hasThis()) macro @:pos(e.pos) (function () return $e)();
+              else Context.storeTypedExpr(typed);
+          }
+
         case v: throw "assert";
       }
 
     function liftCallback(eventType:Type)
       return (function () {
-        if (!value.has(function (e) return switch e {
+        var hasEvent = value.has(function (e) return switch e {
           case macro event: true;
           default: false;
-        })) value = Context.storeTypedExpr(Context.typeExpr(value));
+        });
+
+        if (!hasEvent)
+          value = Context.storeTypedExpr(Context.typeExpr(value));
 
         var evt = eventType.toComplex();
 
