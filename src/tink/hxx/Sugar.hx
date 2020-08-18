@@ -18,8 +18,17 @@ class Sugar {
       default: break;
     }
 
-    if (e.expr.match(EConst(CString(_))))
-      e = macro @:pos(e.pos) @hxx $e;
+    if (e.expr.match(EConst(CString(_)))) {
+      var pos = {
+        var full = Context.getPosInfos(e.pos);
+        Context.makePosition({
+          min: full.min,
+          max: full.min,
+          file: full.file
+        });
+      }
+      e = macro @:pos(pos) @hxx $e;
+    }
 
     var e2 = applyMarkup(e);
 
