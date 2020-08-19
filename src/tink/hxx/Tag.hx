@@ -170,7 +170,7 @@ using StringTools;
       }
     }
 
-    {//TODO: without this typedeffing, compile time explodes ... reduce and raise Haxe issue
+    if (!Context.defined('display')) {//TODO: without this typedeffing, compile time explodes ... reduce and raise Haxe issue
       var alias = '';
 
       function get()
