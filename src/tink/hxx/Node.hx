@@ -1,6 +1,7 @@
 package tink.hxx;
 
 import haxe.macro.Expr;
+using haxe.macro.ExprTools;
 using tink.CoreApi;
 
 enum ChildKind {
@@ -51,6 +52,57 @@ abstract Child(Located<ChildKind>) from Located<ChildKind> to Located<ChildKind>
     }
     return apply(this);
   }
+
+  function childrenString(children:Children)
+    return switch children {
+      case null | { value: [] }: '';
+      case { value: a }: [for (c in a) c.toString()].join('');
+    }
+
+  public function toString()
+    return switch this.value {
+      case CLet(vars, c):
+        var ret = '<let ';
+        for (a in vars)
+          ret += ' ' + attrString(a);
+
+        ret = '>' + childrenString(c) + '</let>';
+
+      case CIf(cond, cons, alt):
+        '<if $${${cond.toString()}}>${childrenString(cons)}' + (switch childrenString(alt) {
+          case '': '';
+          case v: '<else>$v';
+        }) + '</if>';
+      case CFor(head, body):
+        '<for $${${head.toString()}}>${childrenString(body)}</for>';
+      case CSwitch(target, cases):
+        '';
+      case CNode(node):
+        var ret = '<${node.name.value}';
+        for (a in node.attributes)
+          ret += ' ' + attrString(a);
+        ret += switch childrenString(node.children) {
+          case '': '/>';
+          case v: v + '</${node.name.value}>';
+        };
+        ret;
+      case CText(text):
+        text.value;
+      case CExpr(e):
+        exprString(e);
+      case CSplat(e):
+        exprString(e, true);
+    }
+
+  static function attrString(a:Attribute)
+    return switch a {
+      case Splat(e): exprString(e, true);
+      case Empty({ value: name }): name;
+      case Regular({ value: name }, value): '$name=${exprString(value)}';
+    }
+
+  static function exprString(e:Expr, ?splat)
+    return '$${' + (if (splat) '...' else '') + e.toString() + '}';
 }
 
 typedef Node = {
