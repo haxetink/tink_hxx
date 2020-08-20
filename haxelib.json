@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.24.3",
-	"releasenote": "Fix function sugar.",
+	"version": "0.24.4",
+	"releasenote": "Minor autocompletion improvements. Added node printing.",
 	"tags": [
 		"tink",
 		"hxx",
