@@ -287,8 +287,8 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     var ret:Array<Child> = [],
         start = pos;
 
-    function result():Children return {
-      pos: makePos(start, pos),
+    function result(?end):Children return {
+      pos: makePos(start, if (end == null) pos else end),
       value: ret,
     }
 
@@ -394,7 +394,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
                   'found </$found> but expected </$closing>',
                 found.start...found.end
               );
-            return result();
+            return result(found.start - 2);
           }
           else if (kwd('for'))
             ret.push(located(function () {
