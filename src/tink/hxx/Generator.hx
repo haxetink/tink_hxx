@@ -46,7 +46,7 @@ class Generator {
       case [v, null]: v[1].pos.error('single child expected');
       case [v, _]: switch [for (c in v) child(c, yield)] {
         case [v]: v;
-        case v: v.toBlock(c.pos);
+        case v: v.toBlock((macro null).pos);
       }
     }
 
@@ -230,13 +230,13 @@ class Generator {
         case New:
           name.value.instantiate(args, pos);
         case FromHxx:
-          '${name.value}.fromHxx'.resolve(pos).call(args, pos);
+          '${name.value}.fromHxx'.resolve(name.pos).call(args, pos);
         case Call:
-          name.value.resolve(pos).call(args, pos);
+          name.value.resolve(name.pos).call(args, pos);
       }
 
   function isOnlyChild(t:Type)
-    return !Context.unify(Context.typeof(macro []), t.reduce());
+    return !Context.unify(Context.getType('Array'), t.reduce());
 
   function complexAttribute(n:Node):Part {
     var localTags = localTags;
@@ -330,7 +330,7 @@ class Generator {
         else if (requireNoArray(c)) //TODO: this is all still a bit clunky
           switch c.value {
             case [v]:
-              [child(v)].toArray(c.pos).as(ct);
+              [child(v)].toArray(v.pos).as(ct);
             default:
               switch this.children(c, function (e) return e) {
                 case e = macro {}: e;
@@ -340,10 +340,10 @@ class Generator {
                   throw 'assert';
               }
             }
-        else macro @:pos(c.pos) {
+        else macro {
           var __r = [];
           if (false) (__r:$ct);
-          ${this.children(c, function (e) return macro @:pos(e.pos) __r.push($e))};
+          ${this.children(c, function (e) return macro __r.push($e))};
           (__r:$ct);
         }
       }
@@ -447,7 +447,7 @@ class Generator {
       case CSplat(e):
         if (yield == null)
           c.pos.error('single child expected');
-        macro @:pos(c.pos) for (_0 in ${postProcess(e)}) ${yield(macro @:pos(c.pos) _0)};
+        macro @:pos(e.pos) for (_0 in ${postProcess(e)}) ${yield(macro @:pos(e.pos) _0)};
       case CText(s):
         ret(macro @:pos(s.pos) $v{s.value});
       case CSwitch(target, cases):
