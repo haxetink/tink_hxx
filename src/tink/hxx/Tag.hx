@@ -170,7 +170,8 @@ using StringTools;
       }
     }
 
-    if (!Context.defined('display')) {//TODO: without this typedeffing, compile time explodes ... reduce and raise Haxe issue
+    #if (haxe_ver < 4.2) //TODO: without this typedeffing, compile time explodes in older haxe versions
+    if (!Context.defined('display')) {
       var alias = '';
 
       function get()
@@ -192,6 +193,7 @@ using StringTools;
 
       t = get();
     }
+    #end
 
     return
       switch t.reduce() {
