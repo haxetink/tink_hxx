@@ -40,13 +40,16 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
 
   static public function ofExpr(e:Expr):ParserSource {
     switch e {
-      case macro hxx($e): return ofExpr(e);
+      case (macro hxx($e)) | {expr: EDisplay(e,_)}: return ofExpr(e);
       default:
     }
     var offset = 1;
     switch e {
       case macro @:markup $v:
-        e = v;
+        e = switch (v.expr) {
+          case EDisplay(e, _): e; // haxe gives "@:markup EDisplay('stringExpr')" for some reason
+          case _: v;
+        }
         offset = 0;
       default:
     }

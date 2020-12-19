@@ -230,10 +230,22 @@ class Generator {
         case New:
           name.value.instantiate(args, pos);
         case FromHxx:
-          '${name.value}.fromHxx'.resolve(name.pos).call(args, pos);
+          var e = '${name.value}.fromHxx'.resolve(name.pos);
+          #if (haxe_ver >= 4.1)
+          if (Context.containsDisplayPosition(e.pos)) {
+            e = {expr: EDisplay(e, DKMarked), pos: e.pos};
+          }
+          #end
+          e.call(args, pos);
         case Call:
-          name.value.resolve(name.pos).call(args, pos);
-      }
+          var e = name.value.resolve(name.pos);
+          #if (haxe_ver >= 4.1)
+          if (Context.containsDisplayPosition(e.pos)) {
+            e = {expr: EDisplay(e, DKMarked), pos: e.pos};
+          }
+          #end
+          e.call(args, pos);
+    }
 
   function isOnlyChild(t:Type)
     return !Context.unify(Context.getType('Array'), t.reduce());
