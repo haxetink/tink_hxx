@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.24.4",
-	"releasenote": "Minor autocompletion improvements. Added node printing.",
+	"version": "0.25.0",
+	"releasenote": "Improve diagnostics. Speed up compilation.",
 	"tags": [
 		"tink",
 		"hxx",
