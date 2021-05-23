@@ -1,7 +1,8 @@
-[![Build Status](https://travis-ci.org/haxetink/tink_hxx.svg?branch=master)](https://travis-ci.org/haxetink/tink_hxx)
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/haxetink/public)
-
 # HXX = JSX - JS + HX
+
+[![Build Status](https://github.com/haxetink/tink_hxx/actions/workflows/ci.yml/badge.svg)](https://github.com/haxetink/tink_hxx/actions)
+[![Gitter](https://img.shields.io/gitter/room/haxetink/public?logo=gitter&)](https://gitter.im/haxetink/public)
+[![Discord](https://img.shields.io/discord/162395145352904705.svg?logo=discord&logoColor=white&label=discord)](https://discord.com/channels/162395145352904705/579634919576436736)
 
 This library provides a parser for JSX-like syntax in Haxe, as well as a generator. The documentation below describes the syntax permitted by the parser and the semantics used by the generator. You may roll your own generator on top of the parsed syntax tree (see `tink.hxx.Node`), in which case other rules apply.
 
