@@ -1,4 +1,4 @@
--D tink_anon=0.5.0
-# @install: lix --silent download "gh://github.com/haxetink/tink_anon#d6d341c39e086920743e4dac514aae07c6f5003d" into tink_anon/0.5.0/github/d6d341c39e086920743e4dac514aae07c6f5003d
+# @install: lix --silent download "gh://github.com/haxetink/tink_anon#ef441a73a41f9ae4ca0f060035ff2c188618df4c" into tink_anon/0.7.0/github/ef441a73a41f9ae4ca0f060035ff2c188618df4c
 -lib tink_macro
--cp ${HAXE_LIBCACHE}/tink_anon/0.5.0/github/d6d341c39e086920743e4dac514aae07c6f5003d/src
+-cp ${HAXE_LIBCACHE}/tink_anon/0.7.0/github/ef441a73a41f9ae4ca0f060035ff2c188618df4c/src
+-D tink_anon=0.7.0
