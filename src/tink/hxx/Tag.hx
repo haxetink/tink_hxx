@@ -343,19 +343,19 @@ using StringTools;
           var cl = cl.get();
 
           var options = [FromHxx, New],
-              ret = null;
+              ret = null,
+              isAbstract = cl.kind.match(KAbstractImpl(_));
 
           function getCtor()
-            return switch cl.kind {
-              case KAbstractImpl(_): cl.findField('_new', true);
-              default: cl.constructor.get();
-            }
+            return
+              if (isAbstract) cl.findField('_new', true);
+              else cl.constructor.get();
 
           function yield(f:ClassField, kind)
             return
               switch f.type.reduce() {
                 case TFun(args, _):
-                  mk(args, kind, '$name.$kind', f.params, realPath);
+                  mk(args, kind, '$name.$kind', if (kind == New && !isAbstract) cl.params.concat(f.params) else f.params, realPath);
                 case v:
                   throw 'assert $v';
               }
