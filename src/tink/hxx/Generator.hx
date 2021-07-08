@@ -19,14 +19,7 @@ class Generator {
   dynamic function adjustFormattingPos(pos:Position)
     return pos;
 
-  public var defaults(default, null):Lazy<Array<Named<Position->Tag>>>;
-
-  public function new(?defaults) {
-    this.defaults = switch defaults {
-      case null: [];
-      case v: v;
-    }
-
+  public function new() {
     var shift = {
       var pos = (macro null).pos;
       Context.getPosInfos(('foo'.formatString(pos):Expr).pos).min - Context.getPosInfos(pos).min;
