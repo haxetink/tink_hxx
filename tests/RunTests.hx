@@ -233,10 +233,6 @@ class RunTests {
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
 
-    #if tink_parse_unicode
-    NonSense.showOff();
-    #end
-
     Plain.hxx(
       <div key="5">
         {a.map(x -> <div>{x}</div>)}

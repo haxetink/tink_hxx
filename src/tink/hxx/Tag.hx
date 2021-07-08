@@ -31,82 +31,15 @@ using StringTools;
   static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
     return switch localTags[name.value] {
       case null:
-        var found = Context.getLocalVars()[name.value];
-
-        if (found == null) {
-          var path = name.value.split('.');
-          if (path.length > 1 || startsCapital(path[path.length - 1]))
-            found = Context.typeof(name.value.resolve(name.pos));
+        switch name.value.resolve(name.pos).typeof() {
+          case Success(t):
+            Success(declaration(name.value, name.pos, t, []));
+          case Failure(_):
+            name.pos.makeFailure('unknown tag <${name.value}>');
         }
-
-        if (found == null)
-          name.pos.makeFailure('unknown tag <${name.value}>');
-        else
-          Success((localTags[name.value] = declaration.bind(name.value, _, found, []))(name.pos));
-      case get: Success(get(name.pos));
+      case get:
+        Success(get(name.pos));
     }
-
-  static public function getAllInScope(defaults:Lazy<Array<Named<Position->Tag>>>) {
-    var localTags = new Map();
-    function add(name:String, type, params)
-      if (name.charAt(0) != '_')//seems reasonable
-        localTags[name] = {
-          var ret = null;
-          function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
-            if (ret == null)
-              ret = declaration(name, pos, type, params);
-            return ret;
-          }
-        }
-    var vars = Context.getLocalVars();
-    for (name in vars.keys())
-      add(name, vars[name], []);
-
-    switch Context.getLocalType() {
-      case null:
-      case v = TInst(_.get().statics.get() => statics, _):
-
-        var fields = [for (f in v.getFields(false).sure()) f.name => f],
-            method = Context.getLocalMethod();
-
-        if (fields.exists(method) || method == 'new')
-          for (f in fields)
-            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic)))
-              add(f.name, f.type, f.params);
-        for (f in statics)
-          add(f.name, f.type, f.params);
-
-      default:
-    }
-
-    function add(name, f)
-      if (!localTags.exists(name))
-        localTags[name] = f;
-
-    for (i in Context.getLocalImports())
-      switch i {
-        case { mode: IAll, path: path } if (startsCapital(path[path.length - 1].name)):
-
-          path = path.copy();
-
-          var e = {
-            var first = path.shift();
-            macro @:pos(first.pos) $i{first.name};
-          }
-
-          for (p in path)
-            e = EField(e, p.name).at(p.pos);
-
-          for (t in extractAllFrom(e).get())
-            add(t.name, t.value);
-        default:
-      }
-
-    for (d in defaults.get())
-      if (!localTags.exists(d.name))
-        localTags[d.name] = d.value;
-    return localTags;
-  }
 
   static function makeArgs(pos:Position, name:String, t:Type, params:Array<TypeParameter>, ?children:Type):TagArgs {
     function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs {
