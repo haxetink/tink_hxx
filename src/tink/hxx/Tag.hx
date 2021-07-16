@@ -369,7 +369,7 @@ using StringTools;
                     if (cl.statics.get().length + cl.fields.get().length == 0)
                       'There seems to be a type error in $name that cannot be reported due to typing order. Please import the type explicitly or compile it separately.'
                     else
-                      'type $name does not define a suitable constructor of static fromHxx method to be used as HXX'
+                      'type $name does not define a suitable constructor or static fromHxx method to be used as HXX'
                   );
                 case v:
                   yield(v, New);
