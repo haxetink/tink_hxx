@@ -349,7 +349,8 @@ using StringTools;
           function getCtor()
             return
               if (isAbstract) cl.findField('_new', true);
-              else cl.constructor.get();
+              else if (cl.constructor != null) cl.constructor.get();
+              else throw '${cl.name} doesn\'t have a constructor ';
 
           function yield(f:ClassField, kind)
             return
