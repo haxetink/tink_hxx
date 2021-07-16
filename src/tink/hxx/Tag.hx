@@ -350,7 +350,7 @@ using StringTools;
             return
               if (isAbstract) cl.findField('_new', true);
               else if (cl.constructor != null) cl.constructor.get();
-              else throw '${cl.name} doesn\'t have a constructor ';
+              else null;
 
           function yield(f:ClassField, kind)
             return
