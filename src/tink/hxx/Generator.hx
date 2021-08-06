@@ -206,16 +206,8 @@ class Generator {
         }
     };
 
-  function applyCustomRules(t, getValue:Type->Expr) {
-    var transform = getTransform(t);
-    t = transform.reduced.or(t);
-    var e = getValue(t);
-    return switch transform.postprocessor {
-      case PTyped(f): f.bind(e).bounce();
-      case PUntyped(f): f(e);
-      default: e;
-    }
-  }
+  function applyCustomRules(t, getValue:Type->Expr)
+    return getTransform(t)(getValue(t));
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
     return

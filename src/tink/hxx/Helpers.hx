@@ -189,41 +189,29 @@ class Helpers {
     }
   }
 
-  static var transformers = new Map<String, Option<Transformer>>();
+  static var transformers = new Map<String, Expr->Expr>();
 
-  static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>):Option<Transformer> {
+  static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>) {
     var id = r.toString();
     return switch transformers[id] {
       case null:
         transformers[id] = switch r.get().meta.extract(':fromHxx') {
-          case []: None;
+          case []: noop;
           case [{ params: params }]:
 
-            var basicType = null,
-                transform = null;
+            var transform = null;
 
             for (p in params)
               switch p {
-                case macro basicType = $e: basicType = e;
                 case macro transform = $e: transform = e;
                 case macro $e = $_: e.reject('unknown option ${e.toString()}');
                 default: p.reject('should be `<name> = <option>`');
               }
 
-            Some({
-              reduceType: switch basicType {
-                case null: function (t) return t;
-                case v: function (t:Type) {
-                  var ct = t.toComplex();
-                  return basicType.substitute({ _: macro (null: $ct) }).typeof().sure();
-                }
-              },
-              postprocessor:
-                switch transform {
-                  case null: PNone;
-                  case pattern: PUntyped(function (e) return pattern.substitute({ _: e }));
-                }
-            });
+            switch transform {
+              case null: noop;
+              case v: e -> v.substitute({ '_' : e });
+            }
 
           case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
         }
@@ -231,71 +219,21 @@ class Helpers {
     }
   }
 
-  static public function setCustomTransformer(typeID:String, transformer:Transformer)
-    transformers[typeID] = Some(transformer);
-
-  static public function getTransform(t:Type):Transform
+  static public function getTransform(t:Type):Expr->Expr
     return
       switch t {
-        case TAbstract(getCustomTransformer(_) => Some(r), _)
-           | TInst(getCustomTransformer(_) => Some(r), _)
-           | TEnum(getCustomTransformer(_) => Some(r), _)
-           | TType(getCustomTransformer(_) => Some(r), _):
+        case TAbstract(getCustomTransformer(_) => f, _)
+           | TInst(getCustomTransformer(_) => f, _)
+           | TEnum(getCustomTransformer(_) => f, _)
+           | TType(getCustomTransformer(_) => f, _):
 
-          var postprocessor:Postprocessor<Expr->Expr> = switch r.postprocessor {
-            case PTyped(fn): PTyped(fn.bind(t));
-            case PNone: PNone;
-            case PUntyped(fn): PUntyped(fn);
-          }
-
-          switch r.reduceType(t) {
-            case _ == t => true:
-              {
-                reduced: None,
-                postprocessor: postprocessor,
-              }
-            case reducedType:
-              var inner = getTransform(reducedType);
-              {
-                reduced: switch inner.reduced {
-                  case None: Some(reducedType);
-                  case v: v;
-                },
-                postprocessor: switch [inner.postprocessor, postprocessor] {
-                  case [PNone, v] | [v, PNone]: v;
-                  case [PUntyped(i), PUntyped(o)]:
-                    PUntyped(function (e) return o(i(e)));
-                  case [PUntyped(i) | PTyped(i), PUntyped(o) | PTyped(o)]:
-                    PTyped(function (e) return o(i(e)));
-                }
-              }
-          }
+          f;
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
           getTransform(t.reduce(true));
         default:
-          NOOP;
+          noop;
       }
 
-  static var NOOP:Transform = {
-    reduced: None,
-    postprocessor: PNone,
-  }
-
-}
-
-typedef Transformer = {
-  function reduceType(t:Type):Type;
-  var postprocessor(default, null):Postprocessor<Type->Expr->Expr>;
-}
-
-typedef Transform = {
-  var reduced(default, never):Option<Type>;
-  var postprocessor(default, never):Postprocessor<Expr->Expr>;
-}
-
-enum Postprocessor<T> {
-  PNone;
-  PUntyped(f:Expr->Expr);
-  PTyped(f:T);
+  static function noop(e:Expr) return e;
 }
 #end
