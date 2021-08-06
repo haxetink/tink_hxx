@@ -206,8 +206,14 @@ class Generator {
         }
     };
 
-  function applyCustomRules(t, getValue:Type->Expr)
-    return getTransform(t)(getValue(t));
+  function applyCustomRules(t:Type, getValue:Type->Expr)
+    return switch t.reduce() {
+      case TAbstract(_.toString() => 'tink.hxx.Expression', [t]):
+        var ret = applyCustomRules(t, getValue);
+        ret = macro @:pos(ret.pos) () -> $ret;
+      default:
+        getTransform(t)(getValue(t));
+    }
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
     return

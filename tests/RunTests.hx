@@ -101,6 +101,14 @@ class RunTests {
     return asserts.done();
   }
 
+  public function expression() {
+    function button(attr:{ onclick:tink.hxx.Expression<String->Void> })
+      return attr.onclick();
+
+    Plain.hxx('<button onclick=${#if function_sugar trace('clicked!') #else _ -> trace('clicked!') #end} />');
+    return asserts.done();
+  }
+
   public function control() {
     var other = dom('<other/>');
     asserts.assert('<div><zero></zero><one></one><two></two><other></other><other></other></div>' == dom('
