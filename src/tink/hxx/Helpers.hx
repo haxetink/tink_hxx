@@ -125,7 +125,24 @@ class Helpers {
     return s.substring(pos, max);
   }
 
+  static var measured = false;
   static public function functionSugar(value:Expr, t:Type) {
+
+    var mode = Off;
+
+    for (c in Context.getLocalUsing()) // TODO: doing this here might be rather expensive
+      switch c.toString() {
+        case 'tink.hxx.FunctionSugar':
+          mode = On;
+          break;
+        case 'tink.hxx.DeprecatedFunctionSugar':
+          mode = Deprecated;
+          break;
+        default:
+      }
+
+    if (mode == Off)
+      return value;
 
     while (true) switch value {
       case macro ($v): value = v;
@@ -146,6 +163,9 @@ class Helpers {
             case TDynamic(null):
               value.reject('Cannot use `Dynamic` as callback');
             case found:
+              if (mode == Deprecated)
+                e.pos.warning('Automatic function wrapping is deprecated');
+
               if (Context.unify(found, t)) Context.storeTypedExpr(f.expr);
               else if (typed.hasThis()) macro @:pos(e.pos) (function () return $e)();
               else Context.storeTypedExpr(typed);
@@ -235,5 +255,11 @@ class Helpers {
       }
 
   static function noop(e:Expr) return e;
+}
+
+@:enum private abstract FunctionSugarMode(Int) {
+  var Off = 0;
+  var On = 1;
+  var Deprecated = 2;
 }
 #end

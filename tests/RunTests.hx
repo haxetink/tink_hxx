@@ -6,6 +6,11 @@ import tink.testrunner.*;
 import Dummy.*;
 import Tags.*;
 import stuff.Concat;
+#if function_sugar
+using tink.hxx.FunctionSugar;
+#elseif deprecated_function_sugar
+using tink.hxx.DeprecatedFunctionSugar;
+#end
 
 @:asserts
 @:tink
@@ -56,6 +61,22 @@ class RunTests {
       return a.onclick;
     function click(_:Int) {}
     asserts.assert(Plain.hxx('<button onclick=${false ? null : click} />') == click);
+    return asserts.done();
+  }
+
+  public function issue51() {
+    function button(a:{ ?onclick:Int->Void })
+      return a.onclick;
+
+    #if (function_sugar || deprecated_function_sugar)
+      Plain.hxx('<button onclick=${trace(event)} />');
+    #else
+    asserts.assert(
+      Assert.expectCompilerError(
+        Plain.hxx('<button onclick=${trace(event)} />')
+      ).holds
+    );
+    #end
     return asserts.done();
   }
 
