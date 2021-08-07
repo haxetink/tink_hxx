@@ -171,6 +171,13 @@ class Generator {
             },
             duplicateField: function (name) return 'duplicate attribute $name',
             missingField: function (f) return 'missing attribute ${f.name}',//TODO: might be nice to put type here
+          },
+          (owner, field) -> {
+            var e = owner.field(field.name, owner.pos);
+            switch field.type.get() {
+              case None: e;
+              case Some(t): applyCustomRules(t, _ -> e);
+            }
           }
         );
       })
