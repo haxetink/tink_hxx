@@ -1,5 +1,5 @@
 package tink.hxx;
 
-@:callable
-abstract Expression<T>(()->T) from ()->T {
+@:callable @:transitive
+abstract Expression<T>(()->T) from ()->T to ()->T {
 }
