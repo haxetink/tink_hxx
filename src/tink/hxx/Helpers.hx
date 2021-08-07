@@ -209,14 +209,14 @@ class Helpers {
     }
   }
 
-  static var transformers = new Map<String, Expr->Expr>();
+  static var transformers = new Map<String, Option<Expr->Expr>>();
 
   static function getCustomTransformer<T:BaseType>(r:haxe.macro.Type.Ref<T>) {
     var id = r.toString();
     return switch transformers[id] {
       case null:
         transformers[id] = switch r.get().meta.extract(':fromHxx') {
-          case []: noop;
+          case []: None;
           case [{ params: params }]:
 
             var transform = null;
@@ -229,8 +229,8 @@ class Helpers {
               }
 
             switch transform {
-              case null: noop;
-              case v: e -> v.substitute({ '_' : e });
+              case null: None;
+              case v: Some(e -> v.substitute({ '_' : e }));
             }
 
           case v: v[1].pos.error('only one @:fromHxx rule allowed per type');
@@ -242,10 +242,10 @@ class Helpers {
   static public function getTransform(t:Type):Expr->Expr
     return
       switch t {
-        case TAbstract(getCustomTransformer(_) => f, _)
-           | TInst(getCustomTransformer(_) => f, _)
-           | TEnum(getCustomTransformer(_) => f, _)
-           | TType(getCustomTransformer(_) => f, _):
+        case TAbstract(getCustomTransformer(_) => Some(f), _)
+           | TInst(getCustomTransformer(_) => Some(f), _)
+           | TEnum(getCustomTransformer(_) => Some(f), _)
+           | TType(getCustomTransformer(_) => Some(f), _):
 
           f;
         case TType(_, _) | TLazy(_) | TAbstract(_.get() => { pack: [], name: 'Null' }, _):
