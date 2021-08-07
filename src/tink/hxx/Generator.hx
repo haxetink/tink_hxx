@@ -217,7 +217,7 @@ class Generator {
     return switch t.reduce() {
       case TAbstract(_.toString() => 'tink.hxx.Expression', [t]):
         var ret = applyCustomRules(t, getValue);
-        ret = macro @:pos(ret.pos) () -> $ret;
+        ret = macro @:pos(ret.pos) function () return $ret;
       default:
         getTransform(t)(getValue(t));
     }
