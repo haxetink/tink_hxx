@@ -71,7 +71,7 @@ using StringTools;
             switch expr.expr {
               case EConst(CRegexp(pat, opt)):
                 custom.push({
-                  type: f.type.toComplex(),
+                  type: f.type.toComplex({ direct: true }),
                   group: if (f.name == '') None else Some(f.name),
                   filter: new EReg(pat, opt),
                 });
@@ -169,6 +169,10 @@ using StringTools;
         }
     }
   }
+
+  static final cache = new Map();
+  static var cacheId = 0;
+  static inline var CACHE_META = ':hxx.signature';
 
   static public function declaration(name:String, pos:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
 
@@ -286,11 +290,23 @@ using StringTools;
 
           function yield(f:ClassField, kind)
             return
-              switch f.type.reduce() {
-                case TFun(args, _):
-                  mk(args, kind, '$name.$kind', if (kind == New && !isAbstract) cl.params.concat(f.params) else f.params, realPath);
-                case v:
-                  throw 'assert $v';
+              switch f.meta.extract(CACHE_META) {
+                case [{ params: [{ expr: EConst(CInt(cache[Std.parseInt(_)] => ret))}] }] if (ret != null):
+                  ret;
+                default:
+                  f.meta.remove(CACHE_META);
+                  switch f.type.reduce() {
+                    case TFun(args, _):
+
+                      var id = cacheId++,
+                          ret = mk(args, kind, '$name.$kind', if (kind == New && !isAbstract) cl.params.concat(f.params) else f.params, realPath);
+
+                      f.meta.add(CACHE_META, [macro $v{id}], (macro null).pos);
+                      cache[id] = ret;
+                      ret;
+                    case v:
+                      throw 'assert $v';
+                  }
               }
 
           switch cl.findField('fromHxx', true) {
