@@ -225,6 +225,16 @@ class RunTests {
     return asserts.done();
   }
 
+  function foo<A>(attr:{ a: A, b:Array<A> }):String return 'ok';
+  var bar = (attr:{ a: Int, b:Array<Int> }) -> 'ok';
+
+  public function params() {
+    Plain.hxx('<foo a={true} b={[false]} />');
+    Plain.hxx('<foo a={123} b={[321]} />');
+    Plain.hxx('<bar a={123} b={[321]} />');
+    return asserts.done();
+  }
+
   public function dotPaths() {
     function identity(x)
       return x;

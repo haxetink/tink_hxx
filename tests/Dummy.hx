@@ -64,10 +64,6 @@ abstract Dummy({ name:String, attr:DynamicAccess<AttrVal>, children:Children }) 
           e,
           {
             defaultExtension: 'hxx',
-            isVoid: function (s) return switch s.value {
-              case 'img': true;
-              default: false;
-            },
             treatNested: gen.root
           }
         )
