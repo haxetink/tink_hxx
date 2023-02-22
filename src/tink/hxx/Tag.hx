@@ -74,7 +74,7 @@ using StringTools;
     }
 
     return switch cache[key] {
-      case null: cache[key] = declaration(name.value, te, t, params);
+      case null: cache[key] = declaration(name.value, name.pos, t, params);
       case v: v;
     }
   }
@@ -208,7 +208,7 @@ using StringTools;
     }
   }
 
-  static function declaration(name:String, te:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
+  static function declaration(name:String, pos:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
     function mk(args, create, callee, params:Array<TypeParameter>, ?realPath):Tag {
       if (false)
         TFun(args, null);//force inference
