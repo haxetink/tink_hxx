@@ -503,7 +503,7 @@ hxx('
 
 ## Implicit function syntax
 
-For attributes that are functions with 0 or 1 argument, you may write the function body directly:
+With `using tink.hxx.FunctionSugar;` (which can be placed in [`import.hx`](https://haxe.org/manual/type-system-import-defaults.html)), for attributes that are functions with 0 or 1 argument, you may write the function body directly:
 
 ```haxe
 hxx('
@@ -513,6 +513,14 @@ hxx('
 ```
 
 Note that if there's exactly one argument, it will be called "event".
+
+Up until version 0.25 this has been a standard feature, but it has been relegated to an opt-in (via `using`) for a few reasons:
+
+1. some users - especially new comers - consider it confusing rather than convenient (that is left for you to judge)
+2. it's hard to implement in a way that works well with IDE services (this may change in the future though)
+3. it makes code harder to port to JSX, should the need arise
+
+If you have exisiting code relying on this feature but wish to migrate away from it, you may use `using tink.hxx.DeprecatedFunctionSyntax;` instead, which will also activate the feature, but produces warnings anywhere it is used.
 
 ## Whitespace
 
@@ -548,7 +556,7 @@ Example:
 
 ```
 
-The first version will retain the white space between the two spans, the second one will not.  
+The first version will retain the white space between the two spans, the second one will not.
 
 To enforce a whitspace, `${' '}` can be used, e.g.:
 

@@ -21,6 +21,7 @@ using StringTools;
   public var hxxMeta(default, null):Map<String, Type>;
 
   public var parametrized(default, null):Void->{
+    var children(default, never):Type;
     var fieldsType(default, null):ComplexType;
     var requiredFields(default, null):RequireFields;
   }
@@ -28,88 +29,58 @@ using StringTools;
   static function startsCapital(s:String)
     return s.charAt(0).toUpperCase() == s.charAt(0);
 
-  static public function resolve(localTags:Map<String, Position->Tag>, name:StringAt):Outcome<Tag, Error>
-    return switch localTags[name.value] {
-      case null:
-        var found = Context.getLocalVars()[name.value];
+  static final cache = new Map();
 
-        if (found == null) {
-          var path = name.value.split('.');
-          if (path.length > 1 || startsCapital(path[path.length - 1]))
-            found = Context.typeof(name.value.resolve(name.pos));
+  static public function resolve(name:StringAt):Tag {
+    var te = Context.typeExpr(name.value.resolve(name.pos));
+
+    var params = [],
+        t = te.t;
+
+    var key = switch te.expr {
+      case TLocal(v): 'local_${v.id}';// I hope this is unique
+      case TTypeExpr(e):
+        'type_' + switch e {
+          case TTypeDecl(d): d.get().type.toString();
+          case TEnumDecl(_.toString() => s)
+            | TAbstract(_.toString() => s)
+            | TClassDecl(_.toString() => s): s;
         }
-
-        if (found == null)
-          name.pos.makeFailure('unknown tag <${name.value}>');
-        else
-          Success((localTags[name.value] = declaration.bind(name.value, _, found, []))(name.pos));
-      case get: Success(get(name.pos));
+      case TField(_, fa):
+        function id(cl:haxe.macro.Type.Ref<ClassType>, params:Array<Type>)
+          return cl.toString() + switch params {
+            case []: '';
+            case v: '<' + [for (t in v) t.toString()].join(',') +  '>';
+          }
+        switch fa {
+          case FEnum(e, f):
+            params = f.params;
+            t = f.type;
+            'enum_${e.toString()}.${f.name}';
+          case FStatic(c, _.get() => f):
+            params = f.params;
+            t = f.type;
+            'static_${c.toString()}.${f.name}';
+          case FAnon(_) | FDynamic(_):
+            te.t.toString();
+          case FClosure(owner, _.get() => f):
+            params = f.params;
+            t = f.type;
+            'inst_${id(owner.c, owner.params)}.${f.name}';
+          case FInstance(cl, params, f):
+            'inst_${id(cl, params)}.${f.toString()}';
+        }
+      default: te.t.toString();// ewwww
     }
 
-  static public function getAllInScope(defaults:Lazy<Array<Named<Position->Tag>>>) {
-    var localTags = new Map();
-    function add(name:String, type, params)
-      if (name.charAt(0) != '_')//seems reasonable
-        localTags[name] = {
-          var ret = null;
-          function (pos) {//seems I've reimplemented `tink.core.Lazy` here for some reason
-            if (ret == null)
-              ret = declaration(name, pos, type, params);
-            return ret;
-          }
-        }
-    var vars = Context.getLocalVars();
-    for (name in vars.keys())
-      add(name, vars[name], []);
-
-    switch Context.getLocalType() {
-      case null:
-      case v = TInst(_.get().statics.get() => statics, _):
-
-        var fields = [for (f in v.getFields(false).sure()) f.name => f],
-            method = Context.getLocalMethod();
-
-        if (fields.exists(method) || method == 'new')
-          for (f in fields)
-            if (f.kind.match(FMethod(MethNormal | MethInline | MethDynamic)))
-              add(f.name, f.type, f.params);
-        for (f in statics)
-          add(f.name, f.type, f.params);
-
-      default:
+    return switch cache[key] {
+      case null: cache[key] = declaration(name.value, name.pos, t, params);
+      case v: v;
     }
-
-    function add(name, f)
-      if (!localTags.exists(name))
-        localTags[name] = f;
-
-    for (i in Context.getLocalImports())
-      switch i {
-        case { mode: IAll, path: path } if (startsCapital(path[path.length - 1].name)):
-
-          path = path.copy();
-
-          var e = {
-            var first = path.shift();
-            macro @:pos(first.pos) $i{first.name};
-          }
-
-          for (p in path)
-            e = EField(e, p.name).at(p.pos);
-
-          for (t in extractAllFrom(e).get())
-            add(t.name, t.value);
-        default:
-      }
-
-    for (d in defaults.get())
-      if (!localTags.exists(d.name))
-        localTags[d.name] = d.value;
-    return localTags;
   }
 
-  static function makeArgs(pos:Position, name:String, t:Type, params:Array<TypeParameter>, ?children:Type):TagArgs {
-    function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs {
+  static function makeArgs(pos:Position, name:String, t:Type, ?children:Type):TagArgs & { children:Type } {
+    function anon(anon:AnonType, t, lift:Bool, children:Type):TagArgs & { children:Type } {
       var fields = new Map(),
           aliases = new Map(),
           custom:Array<CustomAttr> = [];
@@ -138,7 +109,7 @@ using StringTools;
             switch expr.expr {
               case EConst(CRegexp(pat, opt)):
                 custom.push({
-                  type: f.type.toComplex(),
+                  type: f.type.toComplex({ direct: true }),
                   group: if (f.name == '') None else Some(f.name),
                   filter: new EReg(pat, opt),
                 });
@@ -237,9 +208,8 @@ using StringTools;
     }
   }
 
-  static public function declaration(name:String, pos:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
-
-    function mk(args, create, callee, params, ?realPath):Tag {
+  static function declaration(name:String, pos:Position, type:Type, params:Array<TypeParameter>, ?isVoid:Bool):Tag {
+    function mk(args, create, callee, params:Array<TypeParameter>, ?realPath):Tag {
       if (false)
         TFun(args, null);//force inference
 
@@ -281,7 +251,7 @@ using StringTools;
         default: reject('defines too many arguments');
       }
 
-      var args = makeArgs(pos, name, attr, params, children);
+      var args = makeArgs(pos, name, attr, children);
       for (keys in [args.aliases.keys(), args.fields.keys()])
         for (k in keys)
           if (hxxMeta.exists(k))
@@ -302,14 +272,20 @@ using StringTools;
             var ret = {
               fieldsType: args.fieldsType.toComplex({ direct: true }),
               requiredFields: RStatic(Macro.fieldsToInfos(args.fields)),
+              children: args.children,
             }
             function () return ret;
           default:
             function () {
-              var ct = args.fieldsType.reduce().applyTypeParameters(params, [for (t in params) Context.typeof(macro cast null)]).toComplex({ direct: true });
+              var monos = [for (t in params) Context.typeof(macro cast null)];
+              var ct = args.fieldsType.reduce().applyTypeParameters(params, monos).toComplex({ direct: true });
               var placeholder = macro (cast null : $ct);
               return {
                 fieldsType: ct,
+                children: switch args.children {
+                  case null: null;
+                  case t: t.applyTypeParameters(params, monos);
+                },
                 requiredFields: RStatic(Macro.fieldsToInfos(
                   args.fields,
                   function (f) {
@@ -342,6 +318,8 @@ using StringTools;
         case TInst(cl, _) | TAbstract(_.get().impl => cl, _) if (cl != null):
           var cl = cl.get();
 
+          if (!cl.isPrivate) name = if (cl.module.endsWith(cl.name)) cl.module else '${cl.module}.${cl.name}';
+
           var options = [FromHxx, New],
               ret = null,
               isAbstract = cl.kind.match(KAbstractImpl(_));
@@ -360,7 +338,6 @@ using StringTools;
                 case v:
                   throw 'assert $v';
               }
-
           switch cl.findField('fromHxx', true) {
             case null:
               switch getCtor() {
@@ -395,7 +372,7 @@ using StringTools;
       return
         switch Context.typeof(macro @:pos(pos) ${name.resolve()}.fromHxx).reduce() {
           case TFun(args, _):
-            mk(args, Call, name, [], '$name.fromHxx');
+            mk(args, Call, name, params, '$name.fromHxx');
           case v:
             pos.error('$name.fromHxx should be a function, but it is a ${v.toString()}');
         }
@@ -407,7 +384,7 @@ using StringTools;
         case TType(_.get() => { pack: [], name: t }, []) if (t.startsWith('Class<') || t.startsWith('Enum<')):
           return fromType(Context.getType(name));
         case TFun(args, _):
-          return mk(args, Call, name, []);
+          return mk(args, Call, name, params);
         case TLazy(_) | TType(_):
           type = type.reduce(true);
         case TInst(_) | TAnonymous(_) if (hasField('fromHxx')):
@@ -418,61 +395,12 @@ using StringTools;
           pos.error('$name has type ${orig.toString()} which is unsuitable for HXX');
       }
   }
-
-  static public function extractAllFrom(e:Expr):Lazy<Array<Named<Position->Tag>>> {
-    return function () {
-      var name = {
-
-        var cur = e,
-            ret = [];
-
-        while (true) switch cur {
-          case macro @:pos(p) $v.$name:
-            cur = v;
-            ret.push(name);
-          case macro $i{name}:
-            ret.push(name);
-            break;
-          default: cur.reject('dot path expected');
-        }
-
-        ret.reverse();
-        ret.join('.');
-      }
-
-      var tags = [];
-      for (f in e.typeof().sure().getFields().sure())
-        if (f.isPublic) switch f.kind {
-          case FMethod(MethMacro): continue; //TODO: consider treating these as opaque tags
-          case FMethod(_):
-            var decl = null;
-            function make(pos) {
-              if (decl == null)
-                decl = declaration('$name.${f.name}', pos, f.type, f.params, f.meta.extract(':voidTag').length > 0);
-              return decl;
-            }
-
-            function add(name)
-              tags.push(new Named(name, make));
-
-            add(f.name);
-
-            for (m in f.meta.extract(':hxx'))
-              for (v in m.params) add(v.getString().sure());
-
-          default: continue;
-        }
-      return tags;
-    }
-  }
-
 }
 
 typedef TagArgs = {
   var aliases(default, never):Map<String, String>;//TODO: consider putting aliases straight into fields
   var fields(default, never):Map<String, ClassField>;
   var fieldsType(default, never):Type;
-  var children(default, never):Type;
   var childrenAttribute(default, never):Null<String>;
   var custom(default, never):Array<CustomAttr>;
 }

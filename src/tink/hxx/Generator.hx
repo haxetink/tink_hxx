@@ -19,14 +19,7 @@ class Generator {
   dynamic function adjustFormattingPos(pos:Position)
     return pos;
 
-  public var defaults(default, null):Lazy<Array<Named<Position->Tag>>>;
-
-  public function new(?defaults) {
-    this.defaults = switch defaults {
-      case null: [];
-      case v: v;
-    }
-
+  public function new() {
     var shift = {
       var pos = (macro null).pos;
       Context.getPosInfos(('foo'.formatString(pos):Expr).pos).min - Context.getPosInfos(pos).min;
@@ -51,9 +44,10 @@ class Generator {
     }
 
   function tag(n:Node, tag:Tag, pos:Position) {
+    var paramatrized = tag.parametrized();
 
     var aliases = tag.args.aliases,
-        children = tag.args.children,
+        children:Type = paramatrized.children,//tag.args.children,
         fields = tag.args.fields,
         fieldsType = tag.args.fieldsType,
         childrenAttribute = tag.args.childrenAttribute;
@@ -129,7 +123,7 @@ class Generator {
       case l:
 
         function get()
-          return applyCustomRules(tag.args.children, this.childList.bind(l, _));
+          return applyCustomRules(children, this.childList.bind(l, _));
 
         switch childrenAttribute {
           case null:
@@ -151,7 +145,6 @@ class Generator {
 
     args.unshift(
       compute(function () {
-        var paramatrized = tag.parametrized();
         var attrType = paramatrized.fieldsType;
 
         return mergeParts(
@@ -178,6 +171,13 @@ class Generator {
             },
             duplicateField: function (name) return 'duplicate attribute $name',
             missingField: function (f) return 'missing attribute ${f.name}',//TODO: might be nice to put type here
+          },
+          (owner, field) -> {
+            var e = owner.field(field.name, owner.pos);
+            switch field.type.get() {
+              case None: e;
+              case Some(t): applyCustomRules(t, _ -> e);
+            }
           }
         );
       })
@@ -189,8 +189,8 @@ class Generator {
     return invoke({ value: tag.realPath, pos: tagName.pos }, tag.create, args, tagName.pos);
   }
 
-  function later(fn:Void->Expr)
-    return withTags.bind(localTags, fn).bounce();
+  inline function later(fn:Void->Expr)
+    return fn.bounce();
 
   function makePart(name:StringAt, value:Expr, ?quotes):Part
     return {
@@ -213,16 +213,14 @@ class Generator {
         }
     };
 
-  function applyCustomRules(t, getValue:Type->Expr) {
-    var transform = getTransform(t);
-    t = transform.reduced.or(t);
-    var e = getValue(t);
-    return switch transform.postprocessor {
-      case PTyped(f): f.bind(e).bounce();
-      case PUntyped(f): f(e);
-      default: e;
+  function applyCustomRules(t:Type, getValue:Type->Expr)
+    return switch t.reduce() {
+      case TAbstract(_.toString() => 'tink.hxx.Expression', [t]):
+        var ret = applyCustomRules(t, getValue);
+        ret = macro @:pos(ret.pos) function () return $ret;
+      default:
+        getTransform(t)(getValue(t));
     }
-  }
 
   function invoke(name:StringAt, create:TagCreate, args:Array<Expr>, pos:Position)
     return
@@ -251,7 +249,6 @@ class Generator {
     return !Context.unify(Context.getType('Array'), t.reduce());
 
   function complexAttribute(n:Node):Part {
-    var localTags = localTags;
     return {
       name: n.name.value,
       pos: n.name.pos,
@@ -298,32 +295,11 @@ class Generator {
                   return this.childList(n.children, ret);
 
                 var body =
-                  if (splat) {
-                    var tags = switch requiredArgs[0].t.getFields() {
-                      case Success(fields):
-                        var ret =
-                          #if haxe4
-                            localTags.copy();
-                          #else
-                            [for (t in localTags.keys()) t => localTags[t]];
-                          #end
-
-                        for (c in fields)
-                          ret[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params);
-
-                        ret;
-                      default:
-                        localTags;
-                    }
-
+                  if (splat) 
                     macro @:pos(n.name.pos) {
                       tink.Anon.splat(__data__);
-                      return ${
-                        if (tags != localTags) withTags(tags, getBody)
-                        else later(withTags.bind(tags, getBody))
-                      };
+                      return ${later(getBody)};
                     }
-                  }
                   else getBody();
                 body.func(args).asExpr();
               default:
@@ -501,42 +477,30 @@ class Generator {
   }
 
   function node(n, pos)
-    return tag(n, getTag(n.name), pos);
-
-  function getTag(name:StringAt):Tag
-    return Tag.resolve(localTags, name).sure();
-
-  var localTags:Map<String, Position->Tag>;
+    return tag(n, Tag.resolve(n.name), pos);
 
   var postProcess:Expr->Expr = function (e) return e;
 
-  function withTags<T>(tags, f:Void->T) {
-    #if tink_syntaxhub var lastFn = postProcess; #end
-
-    var last = localTags;
-    return tink.core.Error.tryFinally(
-      function () {
-        localTags = tags;
-        #if tink_syntaxhub
-        postProcess = switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
-          case Some(f): f;
-          case None: function (e) return e;
-        }
-        #end
-        return f();
-      },
-      function () {
-        localTags = last;
-        #if tink_syntaxhub postProcess = lastFn; #end
-      }
-    );
-  }
-
   public function createContext():GeneratorContext {
-    var tags = Tag.getAllInScope(defaults);
     return {
-      isVoid: function (name) return Tag.resolve(tags, name).match(Success({ isVoid: true })),
-      generateRoot: function (root:Children) return withTags(tags, function () return children(root)),
+      isVoid: function (name) return false,
+      generateRoot: function (root:Children) {
+        #if tink_syntaxhub 
+        var lastFn = postProcess;
+        return tink.core.Error.tryFinally(
+          function () {
+            postProcess = switch tink.SyntaxHub.exprLevel.appliedTo(new ClassBuilder()) {
+              case Some(f): f;
+              case None: function (e) return e;
+            }
+            return children(root);
+          },
+          function () postProcess = lastFn
+        );
+        #else
+        return children(root);
+        #end
+      }
     }
   }
 

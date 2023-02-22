@@ -6,6 +6,11 @@ import tink.testrunner.*;
 import Dummy.*;
 import Tags.*;
 import stuff.Concat;
+#if function_sugar
+using tink.hxx.FunctionSugar;
+#elseif deprecated_function_sugar
+using tink.hxx.DeprecatedFunctionSugar;
+#end
 
 @:asserts
 @:tink
@@ -59,6 +64,22 @@ class RunTests {
     return asserts.done();
   }
 
+  public function issue51() {
+    function button(a:{ ?onclick:Int->Void })
+      return a.onclick;
+
+    #if (function_sugar || deprecated_function_sugar)
+      Plain.hxx('<button onclick=${trace(event)} />');
+    #else
+    asserts.assert(
+      Assert.expectCompilerError(
+        Plain.hxx('<button onclick=${trace(event)} />')
+      ).holds
+    );
+    #end
+    return asserts.done();
+  }
+
   public function splat() {
     var o1 = { foo: 'o1', bar: '123' };
     var o2 = { foo: 'o2', baz: 'o2' };
@@ -77,6 +98,14 @@ class RunTests {
         <div>{foo} {bar} {baz}</div>
       </let>').format()
     );
+    return asserts.done();
+  }
+
+  public function expression() {
+    function button(attr:{ onclick:tink.hxx.Expression<String->Void> })
+      return attr.onclick();
+
+    Plain.hxx('<button onclick=${#if function_sugar trace('clicked!') #else _ -> trace('clicked!') #end} />');
     return asserts.done();
   }
 
@@ -196,6 +225,16 @@ class RunTests {
     return asserts.done();
   }
 
+  function foo<A>(attr:{ a: A, b:Array<A> }):String return 'ok';
+  var bar = (attr:{ a: Int, b:Array<Int> }) -> 'ok';
+
+  public function params() {
+    Plain.hxx('<foo a={true} b={[false]} />');
+    Plain.hxx('<foo a={123} b={[321]} />');
+    Plain.hxx('<bar a={123} b={[321]} />');
+    return asserts.done();
+  }
+
   public function dotPaths() {
     function identity(x)
       return x;
@@ -232,10 +271,6 @@ class RunTests {
   #if haxe4
   public function inlineMarkup() {
     var a = [for (i in 0...10) '$i'];
-
-    #if tink_parse_unicode
-    NonSense.showOff();
-    #end
 
     Plain.hxx(
       <div key="5">
