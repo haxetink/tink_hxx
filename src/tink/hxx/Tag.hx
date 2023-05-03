@@ -94,8 +94,10 @@ using StringTools;
             macro @:pos(first.pos) $i{first.name};
           }
 
-          for (p in path)
-            e = EField(e, p.name).at(p.pos);
+          for (p in path) {
+            var name = p.name;
+            e = macro @:pos(p.pos) $e.$name;
+          }
 
           for (t in extractAllFrom(e).get())
             add(t.name, t.value);
@@ -427,7 +429,7 @@ using StringTools;
             ret = [];
 
         while (true) switch cur {
-          case macro @:pos(p) $v.$name:
+          case macro $v.$name:
             cur = v;
             ret.push(name);
           case macro $i{name}:
