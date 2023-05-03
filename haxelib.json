@@ -10,8 +10,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"version": "0.25.0",
-	"releasenote": "Improve diagnostics. Speed up compilation.",
+	"version": "0.25.1",
+	"releasenote": "Haxe 4.3 compatibility",
 	"tags": [
 		"tink",
 		"hxx",
