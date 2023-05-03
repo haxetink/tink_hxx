@@ -427,7 +427,11 @@ using StringTools;
             ret = [];
 
         while (true) switch cur {
+          #if (haxe_ver < 4.3)
           case macro @:pos(p) $v.$name:
+          #else
+          case {expr: EField(v, name, _)}:
+          #end
             cur = v;
             ret.push(name);
           case macro $i{name}:
