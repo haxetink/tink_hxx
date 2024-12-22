@@ -328,6 +328,7 @@ class Generator {
                   throw 'assert';
               }
             }
+        else if (c == null || c.value.length == 0) macro ([]:$ct);
         else macro {
           var __r = [];
           if (false) (__r:$ct);
