@@ -42,7 +42,7 @@ using StringTools;
         if (found == null)
           name.pos.makeFailure('unknown tag <${name.value}>');
         else
-          Success((localTags[name.value] = declaration.bind(name.value, _, found, []))(name.pos));
+          Success((localTags[name.value] = declaration.bind(name.value, _, found, [], null))(name.pos));
       case get: Success(get(name.pos));
     }
 
