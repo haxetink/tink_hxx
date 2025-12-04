@@ -309,7 +309,7 @@ class Generator {
                           #end
 
                         for (c in fields)
-                          ret[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params);
+                          ret[c.name] = Tag.declaration.bind(c.name, _, c.type, c.params, null);
 
                         ret;
                       default:
