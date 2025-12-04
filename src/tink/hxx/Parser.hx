@@ -2,6 +2,7 @@ package tink.hxx;
 
 #if macro
 import haxe.macro.Expr;
+import haxe.macro.Expr.Error as HxError;
 import tink.parse.Char.*;
 import tink.parse.*;
 import tink.hxx.Node;
@@ -65,7 +66,7 @@ abstract ParserSource(ParserSourceData) from ParserSourceData to ParserSourceDat
   }
 }
 
-class Parser extends ParserBase<Position, haxe.macro.Error> {
+class Parser extends ParserBase<Position, HxError> {
 
   var fileName:String;
   var config:ParserConfig;
@@ -116,7 +117,7 @@ class Parser extends ParserBase<Position, haxe.macro.Error> {
     return
       reenter(
         try Context.parseInlineString(source, pos)
-        catch (e:haxe.macro.Error) throw e
+        catch (e:HxError) throw e
         catch (e:Dynamic) pos.error(e)
       );
   }
